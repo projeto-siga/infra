@@ -1,0 +1,111 @@
+# BEGIN SETUP LDAP AUTHENTICATION
+# REF: https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html-single/security_architecture/index#using_ldap_management_realm
+# REF: https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html-single/how_to_configure_identity_management/index#securing_the_management_interfaces_with_ldap
+# REF: https://access.redhat.com/solutions/2049633 (RBAC AUTH TROUBLE RESEARCH)
+# REF: https://access.redhat.com/solutions/544624 (LDAP-ERROR-CODES)
+# REF: https://access.redhat.com/solutions/3220741 (COMPLETE HOWTO)
+#
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/dir-context=ldap-dir-context:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/dir-context=ldap-dir-context:add(url="<%= @ldap_url %>",principal="<%= @ldap_principal -%>",credential-reference={store=<%= @ldap_credential_store_name -%>,alias=<%= @ldap_cred_alias -%>}, referral-mode=follow)
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/ldap-realm=ldap-realm:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/ldap-realm=ldap-realm:add(dir-context=ldap-dir-context,direct-verification="true",identity-mapping={rdn-identifier="sAMAccountName", attribute-mapping=[{filter-base-dn="<%= @ldap_filter_base_dn -%>",filter="(& (objectClass=group)(member={1}))",from="cn",to="Roles",role-recursion="5"}], search-base-dn="<%= @ldap_search_base_dn -%>", use-recursive-search="false"})
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/simple-role-decoder=from-roles-attribute:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/simple-role-decoder=from-roles-attribute:add(attribute=Roles)
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/security-domain=ldap-security-domain:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/security-domain=ldap-security-domain:add(realms=[{realm=ldap-realm,role-decoder=from-roles-attribute}],default-realm=ldap-realm,permission-mapper=default-permission-mapper)
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:add(path=<%= @truststore_base_dir -%>/ldap-truststore.jks,credential-reference={clear-text="<%= @truststore_secret -%>"},type=JKS)
+end-if
+try
+  if (result == undefined) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:read-alias(alias=ldapserver)
+    /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:import-certificate(alias=ldapserver, path=<%= @ldap_cert_path -%>, validate=false)
+    /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:store
+  else
+    <% if @was_cert_updated %>
+    /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:remove-alias(alias=ldapserver)
+    /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:store
+    /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:import-certificate(alias=ldapserver, path=<%= @ldap_cert_path -%>, validate=false)
+    /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:store
+    <% else %>
+    echo Certificado jah estava ok
+    <% end %>
+  end-if
+  <% if @was_cert_updated %>
+  if (result != "EMBEDDED") of /:read-attribute(name=launch-type)
+    /host=<%= node['hostname'] -%>:reload
+  else
+    /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:reload
+  end-if
+  <% end %>
+catch
+  echo Ihhhhh falhou o import do certificado
+finally
+  echo terminou import certificado LDAP
+end-try
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/trust-manager=ldaps-trustmanager:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/trust-manager=ldaps-trustmanager:add(key-store=ldaps-truststore,algorithm="PKIX")
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/client-ssl-context=ldaps-context:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/client-ssl-context=ldaps-context:add(trust-manager=ldaps-trustmanager,protocols=["TLSv1.2"])
+end-if
+/host=<%= node['hostname'] -%>/subsystem=elytron/dir-context=ldap-dir-context:write-attribute(name=ssl-context,value=ldaps-context)
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/http-authentication-factory=ldap-http-auth:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/http-authentication-factory=ldap-http-auth:add(http-server-mechanism-factory=global,security-domain=ldap-security-domain,mechanism-configurations=[{mechanism-name=BASIC,mechanism-realm-configurations=[{realm-name=ldap-realm}]}])
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:add(sasl-server-factory=elytron)
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/sasl-authentication-factory=ldap-sasl-authentication:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/sasl-authentication-factory=ldap-sasl-authentication:add(sasl-server-factory=ldap-sasl-server-factory,security-domain=ldap-security-domain,mechanism-configurations=[{mechanism-name=PLAIN,mechanism-realm-configurations=[{realm-name=ldap-realm}]}])
+end-if
+/host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:list-clear(name=filters)
+
+# if (result.pattern-filter != "PLAIN") of /host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:list-get(name=filters, index=0)
+/host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:list-add(name=filters, index=0, value={pattern-filter=PLAIN})
+# end-if
+# if (result.pattern-filter != "JBOSS-LOCAL-USER") of /host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:list-get(name=filters, index=1)
+/host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:list-add(name=filters, index=1, value={pattern-filter=JBOSS-LOCAL-USER})
+# end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/identity-realm=local:read-resource
+  /host=<%= node['hostname'] -%>/subsystem=elytron/identity-realm=local:add(identity="$local")
+end-if
+if (result.realm != "local") of /host=<%= node['hostname'] -%>/subsystem=elytron/security-domain=ldap-security-domain:list-get(name=realms, index=0)
+  /host=<%= node['hostname'] -%>/subsystem=elytron/security-domain=ldap-security-domain:list-add(name=realms, index=0, value={realm=local} )
+end-if
+if (result.mechanism-name != "JBOSS-LOCAL-USER" || result.realm-mapper != "local") of /host=<%= node['hostname'] -%>/subsystem=elytron/sasl-authentication-factory=ldap-sasl-authentication:list-get(name=mechanism-configurations, index=0)
+  /host=<%= node['hostname'] -%>/subsystem=elytron/sasl-authentication-factory=ldap-sasl-authentication:list-add(name=mechanism-configurations, index=0, value={mechanism-name="JBOSS-LOCAL-USER", realm-mapper="local"})
+end-if
+### NAO FUNCIONOU, MAS TÁ NA DOC: /host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:list-add(name=properties, index=0, value={name="wildfly.sasl.local-user.default-user", value="$local"})  
+/host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:write-attribute(name=properties,value={name="wildfly.sasl.local-user.default-user", value="$local"})
+/core-service=management/access=authorization:write-attribute(name=provider,value=rbac)
+/core-service=management/access=authorization:write-attribute(name=use-identity-roles,value=true)
+<% @jboss_user_roles.each do |one_role_name| %>
+if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:read-resource
+  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:add
+end-if
+<% this_role_users = @jboss_ldap_role_mappings.fetch(one_role_name).fetch('users', []).uniq
+   this_role_groups = @jboss_ldap_role_mappings.fetch(one_role_name).fetch('groups', []).uniq
+   this_role_groups.each do |one_groupname|
+%>
+<% if !one_groupname.nil? && !one_groupname.empty?  %>
+if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:read-resource
+  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:add(name=<%= one_groupname -%>,type=GROUP)
+end-if
+<%  end %>
+<%  end %>
+<% this_role_users.each do |one_username| %>
+<% if !one_username.nil? && !one_username.empty?  %>
+if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:read-resource
+  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:add(name=<%= one_username -%>,type=USER)
+end-if
+<%  end %>
+<%  end %>
+<%  end %>
+/host=<%= node['hostname'] -%>/core-service=management/management-interface=http-interface:undefine-attribute(name=security-realm)
+/host=<%= node['hostname'] -%>/core-service=management/management-interface=http-interface:write-attribute(name=http-authentication-factory,value=ldap-http-auth)
+/host=<%= node['hostname'] -%>/core-service=management/management-interface=http-interface:write-attribute(name=http-upgrade,value={"enabled" => true,"sasl-authentication-factory" => "management-sasl-authentication"})
+# END SETUP LDAP AUTHENTICATION

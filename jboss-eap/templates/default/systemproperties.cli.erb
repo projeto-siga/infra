@@ -1,0 +1,3 @@
+<% @properties.each_pair do |name, property| %>
+  /system-property=<%= name %>:add(value="<%= property['value'] %>", boot-time=<%= !property['boot-time'].nil? %>)
+<% end %>

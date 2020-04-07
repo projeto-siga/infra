@@ -1,0 +1,15 @@
+if (outcome != success) of /profile=<%= @profile_name %>/subsystem=security/security-domain=<%= @name %>:read-resource
+  /profile=<%= @profile_name %>/subsystem=security/security-domain=<%= @name %>:add(cache-type="default")
+  /profile=<%= @profile_name %>/subsystem=security/security-domain=<%= @name %>/authentication=classic:add(\
+    login-modules=[\
+    {\
+      code="<%= @code %>",\
+      flag="<%= @flag %>",\
+      <% if !@module_options.empty? -%>
+      module-options={\
+        <%= @module_options.join(', ') %>\
+      }\
+      <% end -%>
+    }\
+  ])
+end-if

@@ -1,0 +1,17 @@
+DEPENDENCIES
+  firewalld
+  jboss-eap
+    path: .
+    metadata: true
+  jfrj-basic-server
+    path: ../jfrj-basic-server
+  keytool
+
+GRAPH
+  firewalld (1.1.5)
+  jboss-eap (2.0.0)
+    firewalld (>= 0.0.0)
+    keytool (>= 0.0.0)
+  jfrj-basic-server (1.0.5)
+    firewalld (>= 0.0.0)
+  keytool (0.7.1)

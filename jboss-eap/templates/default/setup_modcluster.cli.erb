@@ -1,0 +1,21 @@
+<% if @jboss_version  >= 7.0 %>
+if (outcome != success) of /profile=<%= @profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=cpu:read-resource
+  /profile=<%= @profile_name -%>/subsystem=modcluster/proxy=default:add-metric(type=cpu,weight=2)
+end-if
+if (result !=2) of /profile=<%= @profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=cpu:read-attribute(name=weight)
+  /profile=<%= @profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=cpu:write-attribute(name=weight,value=2)
+end-if
+if (outcome != success) of /profile=<%= @profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=busyness:read-resource
+  /profile=<%= @profile_name -%>/subsystem=modcluster/proxy=default:add-metric(type=busyness)
+end-if
+<% else %>
+if (outcome != success) of /profile=<%= @profile_name -%>/subsystem=modcluster/mod-cluster-config=configuration/dynamic-load-provider=configuration/load-metric=cpu:read-resource
+  /profile=<%= @profile_name -%>/subsystem=modcluster/mod-cluster-config=configuration:add-metric(type=cpu,weight=2)
+end-if
+if (result !=2 ) of /profile=<%= @profile_name -%>/subsystem=modcluster/mod-cluster-config=configuration/dynamic-load-provider=configuration/load-metric=cpu:read-attribute(name=weight)
+  /profile=<%= @profile_name -%>/subsystem=modcluster/mod-cluster-config=configuration/dynamic-load-provider=configuration/load-metric=cpu:write-attribute(name=weight,value=2)
+end-if
+if (outcome != success) of /profile=<%= @profile_name -%>/subsystem=modcluster/mod-cluster-config=configuration/dynamic-load-provider=configuration/load-metric=busyness:read-resource
+  /profile=<%= @profile_name -%>/subsystem=modcluster/mod-cluster-config=configuration:add-metric(type=business,weight=1)
+end-if
+<% end %>

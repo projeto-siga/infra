@@ -1,0 +1,24 @@
+<% @server_groups.each_pair do |name, server_group| %>
+  <% server_name = "#{name}#{@server_id_suffix}"
+     tx_node_id = "#{name}#{@tx_id_suffix}"
+     log_path = "#{@sys_log_base_dir}/#{server_name}"
+  %>
+if (outcome != success) of /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>:read-resource
+  /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>:add(\
+    auto-start=<%= server_group.fetch('auto-start', true) -%>,\
+    socket-binding-group="<%= server_group.fetch('socket-binding-group') -%>",\
+    socket-binding-port-offset=<%= server_group.fetch('socket-binding-port-offset') -%>,\
+    group="<%= name -%>"\
+  )
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>/system-property=jboss.tx.node.id:read-resource
+  /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>/system-property=jboss.tx.node.id:add(value="<%= tx_node_id -%>")
+else
+  /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>/system-property=jboss.tx.node.id:write-attribute(name=value, value="<%= tx_node_id -%>")
+end-if
+if (outcome != success) of /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>/path=custom.jboss.server.log.dir:read-resource
+  /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>/path=custom.jboss.server.log.dir:add(path="<%= log_path -%>")
+else
+  /host=<%= node['hostname'] -%>/server-config=<%= server_name -%>/path=custom.jboss.server.log.dir:write-attribute(name=path, value="<%= log_path -%>")
+end-if
+<% end %>

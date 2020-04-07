@@ -1,0 +1,40 @@
+#!/bin/bash
+
+SERVICES=`systemctl list-unit-files eap* | grep eap | cut -d \  -f1`
+for SERVICE in $SERVICES
+do
+  SRV_STATUS=$(systemctl is-active $SERVICE)
+  if [[ "$SRV_STATUS" == "active" ]]; then
+    systemctl stop $SERVICE
+    systemctl disable $SERVICE
+    <% if @is_rpm %>
+    rm -f /usr/lib/systemd/system/$SERVICE
+  elif [[ "$SRV_STATUS" == "inactive" ]]; then
+    rm -f /usr/lib/systemd/system/$SERVICE
+    <% end %>
+  fi
+done
+
+systemctl daemon-reload
+
+<% if @is_rpm %>
+yum groupremove <%= @yum_group_name -%> -y
+<% else %>
+userdel <%= @user %>
+<% if !@user.eql?(@group) %>
+groupdel <%= @group %>
+<% end %>
+<% if @jboss_install_dir.match('/opt/jboss-') %>
+rm -rf $(realpath <%= @jboss_install_dir -%>)
+rm -rf <%= @jboss_install_dir %>
+<% end %>
+<% end %>
+
+rm -rf /var/log/jboss
+rm -rf /var/opt
+rm -rf /opt/jboss
+rm -rf /opt/rh
+rm -rf /etc/opt
+rm -f /tmp/*.cli
+rm -f /etc/pki/ca-trust/source/anchors/ldap.pem
+rm -f /etc/ssl/certs/vm*

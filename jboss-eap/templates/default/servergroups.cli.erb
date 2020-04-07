@@ -1,0 +1,15 @@
+/server-group=<%= @server_group_name %>/jvm=<%= @server_group_name %>:write-attribute(\
+  name=jvm-options, \
+  value=[\
+    "-Dorg.jboss.resolver.warning=true",\
+    "-Dsun.rmi.dgc.server.gcInterval=3600000",\
+    "-Dsun.lang.ClassLoader.allowArraySyntax=true",\
+    "-Dfile.encoding=utf-8",\
+    "-Duser.language=pt",\
+    "-Duser.region=BR",\
+    "-Duser.country=BR",\
+    "-Djava.awt.headless=true",\
+    "-Xss256k",\
+    "-Djava.security.egd=file:/dev/./urandom"\
+  ]\
+)

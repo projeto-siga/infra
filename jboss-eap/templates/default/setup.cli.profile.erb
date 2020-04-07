@@ -1,0 +1,139 @@
+# embed-host-controller --host-config=<%= @host_config_file -%> --domain-config=<%= @domain_config_file %>
+if (outcome != success) of /profile=<%= @new_profile_name -%>:read-resource   
+  /profile=<%= @source_profile_name -%>:clone(to-profile=<%= @new_profile_name -%>)
+end-if
+################
+# CACHE_CONFIG #
+################
+<% if @use_local_ejb_cache %>
+if (outcome == success) of /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/distributed-cache=dist:read-resource
+/profile=<%= @new_profile_name -%>/subsystem=ejb3:write-attribute(name="default-sfsb-cache",value=simple)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=passivation:add(batching=false,indexing=NONE,statistics-enabled=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=passivation/component=locking:write-attribute(name=isolation,value=REPEATABLE_READ)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=passivation/component=transaction:write-attribute(name=mode,value=BATCH)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=passivation/store=file:add(passivation=true,purge=false)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=persistent:add(batching=false,indexing=NONE,statistics-enabled=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=persistent/component=locking:write-attribute(name=isolation,value=REPEATABLE_READ)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=persistent/component=transaction:write-attribute(name=mode,value=BATCH)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/local-cache=persistent/store=file:add(passivation=false,purge=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb:write-attribute(name=default-cache,value=passivation)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/distributed-cache=dist:remove
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=ejb/transport=jgroups:remove
+end-if
+<% end %>
+<% if @use_local_web_cache %>
+if (outcome == success) of /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/distributed-cache=dist:read-resource
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/local-cache=local-web:add(statistics-enabled=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/local-cache=local-web/store=file:add(purge=false,passivation=false)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/local-cache=local-web/component=transaction:write-attribute(name=mode,value=BATCH)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/local-cache=concurrent:add(statistics-enabled=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/local-cache=concurrent/store=file:add(purge=false,passivation=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web:write-attribute(name=aliases,value=["standard-session-cache"])
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web:write-attribute(name=default-cache,value=local-web)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web:write-attribute(name=statistics-enabled,value=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/distributed-cache=dist:remove
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=web/transport=jgroups:remove
+end-if
+<% end %>
+<% if @use_local_srv_cache %>
+if (outcome == success) of /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server/replicated-cache=default:read-resource
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server/local-cache=local-default-tmp:add
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server:write-attribute(name=default-cache,value=local-default-tmp)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server/replicated-cache=default:remove
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server/local-cache=default:add(statistics-enabled=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server/local-cache=default/component=transaction:write-attribute(name=mode,value=BATCH)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server:write-attribute(name=default-cache,value=default)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server/local-cache=local-default-tmp:remove
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server/transport=jgroups:remove
+end-if
+<% end %>
+<% if @use_local_hb_cache %>
+if (outcome == success) of /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/replicated-cache=timestamps:read-resource
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/replicated-cache=timestamps:remove
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=timestamps:add(statistics-enabled=true)
+#/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=timestamps/component=transaction:write-attribute(name=locking,value=PESSIMISTIC)
+#/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=timestamps/component=transaction:write-attribute(name=mode,value=NONE)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/invalidation-cache=entity:remove
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity:add(statistics-enabled=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity/component=transaction:write-attribute(name=mode,value=NON_XA)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity/component=expiration:write-attribute(name=max-idle,value=100000)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity/memory=object:write-attribute(name=size,value=10000)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=local-query:write-attribute(name=statistics-enabled,value=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate:write-attribute(name=default-cache,value=local-query)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate:write-attribute(name=statistics-enabled,value=true)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=server:write-attribute(name=aliases,value=["singleton cluster"])
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=local-query/component=transaction:write-attribute(name=locking,value=PESSIMISTIC)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=local-query/component=transaction:write-attribute(name=locking,value=PESSIMISTIC)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=local-query/component=transaction:write-attribute(name=mode,value=NONE)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/transport=jgroups:remove
+end-if
+<% end %>
+######################
+# MOD_CLUSTER CONFIG #
+######################
+/profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default:write-attribute(name=advertise,value=false)
+/profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default:write-attribute(name=load-balancing-group,value="${segsap.modcluster.lbgroup:<%= @new_profile_name -%>Default}")
+<%
+ cluster_idx=0
+ @cluster_address_list.each do |cluster_address|
+ cluster_idx += 1
+ item_cluster_cfg_name = "#{@cluster_cfg_name_prefix}#{cluster_idx}"
+ %>
+<% mod_cluster_src_profile_list = ['full-ha', 'ha']
+if mod_cluster_src_profile_list.include? @source_profile_name 
+mod_cluster_src_profile_list.each do |one_mod_cluster_profile|
+%>
+if (outcome != success) of /socket-binding-group=<%= one_mod_cluster_profile -%>-sockets/remote-destination-outbound-socket-binding=<%= item_cluster_cfg_name -%>:read-resource 
+  /socket-binding-group=<%= one_mod_cluster_profile -%>-sockets/remote-destination-outbound-socket-binding=<%= item_cluster_cfg_name -%>:add(host=<%= cluster_address -%>,port=<%= @mod_cluster_port -%>)
+  /profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default:list-add(name=proxies,value=<%= item_cluster_cfg_name -%>)
+end-if
+<% end %>
+<% end %>
+<% end %>
+if (outcome != success) of /profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=cpu:read-resource
+  /profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default:add-metric(type=cpu,weight=2)
+end-if
+if (result !=2) of /profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=cpu:read-attribute(name=weight)
+  /profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=cpu:write-attribute(name=weight,value=2)
+end-if
+if (outcome != success) of /profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default/load-provider=dynamic/load-metric=busyness:read-resource
+  /profile=<%= @new_profile_name -%>/subsystem=modcluster/proxy=default:add-metric(type=busyness)
+end-if
+
+<% if @enable_activemq == true %>
+
+#########################
+# ActiveMQ BASIC CONFIG #
+#########################
+/profile=<%= @new_profile_name -%>/subsystem=messaging-activemq/server=default:write-attribute(name=cluster-password,value="${jboss.messaging.cluster.password:<%= @activemq_pass -%>}")
+<% end %>
+
+#######################
+# Web Services CONFIG #
+#######################
+/profile=<%= @new_profile_name -%>/subsystem=webservices:write-attribute(name=modify-wsdl-address,value=true)
+/profile=<%= @new_profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-host,value="<%= @webservice_fqdn -%>")
+/profile=<%= @new_profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-port,value="80")
+/profile=<%= @new_profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-secure-port,value="443")
+/profile=<%= @new_profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-uri-scheme,value="https")
+
+#########################
+# Undertow Basic CONFIG #
+#########################
+/profile=<%= @new_profile_name -%>/subsystem=undertow/buffer-cache=default:write-attribute(name=buffer-size,value=<%= @undertow_buffer_size -%>)
+# REMOVE CONTEXT ROOT FROM UNDERTOW
+ if (outcome == success) of /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/location=\/:read-resource
+  /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/location=\/:remove
+end-if
+
+#################
+# CONFIGURE LOG #
+#################
+<% if @is_remote_log == true %>
+if (outcome != success) of /profile=<%= @new_profile_name -%>/subsystem=logging/custom-handler=RSyslogHdlr:read-resource
+  /profile=<%= @new_profile_name -%>/subsystem=logging/custom-handler=RSyslogHdlr:add(class="org.jboss.logmanager.handlers.SyslogHandler",enabled=true,formatter="%h/${jboss.server.name}: %d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%E%n",level=INFO,module="org.jboss.logmanager",properties={"appName" => "<%= @log_tag -%>","facility"=> "LOCAL_USE_1","serverHostname"=> "<%= @logserver_addr -%>","port"=>"<%= @logserver_port -%>", "protocol"=> "<%= @logserver_protocol -%>","hostname"=> "${jboss.server.name}"}
+  /profile=<%= @new_profile_name -%>/subsystem=logging/root-logger=ROOT:add-handler(name=RSyslogHdlr)
+end-if
+<% end %>
+
+# stop-embedded-host-controller

@@ -1,0 +1,52 @@
+<% var_prefix = @version < 7  ? 'JBOSS_' : 'WILDFLY_' -%>
+# The configuration you want to run
+
+# Location of java in the JRE (the default)
+#JAVA_HOME=/usr/lib/jvm/jre
+# Use the following for location of java in the SDK
+# JAVA_HOME=/usr/lib/jvm/java
+
+# Make sure java is on your path
+#JAVAPTH="/usr/lib/jvm/jre/bin"
+
+# Location to keep the console log, the file to be searched for the server
+# start up message besides /var/opt/rh/eap7/log/wildfly/domain/server.log
+<%= var_prefix %>CONSOLE_LOG=<%= @log_path %>/console.log
+
+# Define the script to use to start wildfly
+#<%= @version < 7 ? var_prefix.gsub('_', '') : var_prefix -%>SH="<%= @init_script -%>"
+
+# Define server configuration to start, eg. standalone.xml
+<%= var_prefix %><%= @version > 7 ? 'SERVER' : 'DOMAIN' -%>_CONFIG="<%= @domain_config_file %>"
+
+<% if @version < 7.0 %>
+# Define domain mode
+<%= var_prefix.gsub('_', '') -%>CONF=domain
+
+# The amount of time to wait for startup - seconds
+<%= var_prefix -%>STARTUP_WAIT="600"
+
+# The amount of time to wait for shutdown - seconds
+<%= var_prefix -%>SHUTDOWN_WAIT="240"
+<% end %>
+
+# Define host configuration to start, eg. host.xml
+<%= var_prefix -%>HOST_CONFIG="<%= @host_config_file %>"
+
+
+# Define where wildfly module directory is
+#<%= var_prefix -%>MODULEPATH="<%= @jboss_install_home_dir -%>/modules"
+
+# The address to bind to
+#<%= var_prefix -%>BIND=0.0.0.0
+
+# Additionals args to include on startup
+#<%= var_prefix -%>OPTS=
+
+<% if @version < 7 %>
+<%= var_prefix -%>USER=jboss
+
+<%= var_prefix -%>GROUP=jboss
+
+<%= var_prefix -%>HOME="<%= @jboss_install_home_dir -%>"
+<% end %>

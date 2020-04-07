@@ -1,0 +1,21 @@
+try
+/extension=org.jboss.as.cmp:add()
+/extension=org.jboss.as.configadmin:add()
+/extension=org.jboss.as.jacorb:add()
+/extension=org.jboss.as.threads:add()
+/extension=org.jboss.as.web:add()
+catch
+  echo IhJaTava
+end-try
+try
+/socket-binding-group=eap6-standard-sockets:add(default-interface=public)
+/socket-binding-group=eap6-standard-sockets/socket-binding=ajp:add(port=8009)
+/socket-binding-group=eap6-standard-sockets/socket-binding=http:add(port=8080)
+/socket-binding-group=eap6-standard-sockets/socket-binding=https:add(port=8443)
+/socket-binding-group=eap6-standard-sockets/socket-binding=remoting:add(port=4447)
+/socket-binding-group=eap6-standard-sockets/socket-binding=txn-recovery-environment:add(port=4712)
+/socket-binding-group=eap6-standard-sockets/socket-binding=txn-status-manager:add(port=4713)
+/socket-binding-group=eap6-standard-sockets/remote-destination-outbound-socket-binding=mail-smtp:add(host="localhost",port="25")
+catch
+  echo IhJaTava
+end-try

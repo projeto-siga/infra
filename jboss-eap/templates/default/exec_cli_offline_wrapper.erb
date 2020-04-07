@@ -1,0 +1,9 @@
+<% if @exec_cli_v_offline && @exec_cli_v_offline_start %>
+embed-host-controller --host-config=<%= @exec_cli_v_hostfile -%> --domain-config=<%= @exec_cli_v_domainfile %>
+<% end %>
+<%= render @exec_cli_v_template,
+    variables: @exec_cli_v_variables
+   %>
+<% if @exec_cli_v_offline && @exec_cli_v_offline_start %>
+stop-embedded-host-controller
+<% end %>

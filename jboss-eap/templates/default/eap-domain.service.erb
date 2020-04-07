@@ -1,0 +1,37 @@
+[Unit]
+Description=JBoss EAP (domain mode)
+After=syslog.target network.target
+Before=httpd.service
+
+[Service]
+LimitNOFILE=102642
+<%if @version < 7.0 %>
+TimeoutStartSec=600
+TimeoutStopSec=600
+ExecStart=<%= @init_script -%> start
+ExecStop=<%= @init_script -%> stop
+ExecReload=<%= @init_script -%> restart
+PIDFile=/var/run/jboss-as/jboss-as-domain.pid
+<% else %>
+User=jboss
+Group=jboss
+Environment=LAUNCH_JBOSS_IN_BACKGROUND=1
+Environment="JAVA_HOME=/usr/lib/jvm/jre"
+Environment="JAVAPTH=/usr/lib/jvm/jre/bin"
+Environment="WILDFLY_SH=/opt/rh/eap<%= @major_version -%>/root/usr/share/wildfly/bin/domain.sh"
+Environment="WILDFLY_SERVER_CONFIG=domain.xml"
+Environment="WILDFLY_CONSOLE_LOG=/var/opt/rh/eap<%= @major_version -%>/log/wildfly/domain/console.log"
+Environment="WILDFLY_HOST_CONFIG="
+Environment="WILDFLY_MODULEPATH=/opt/rh/eap<%= @major_version -%>/root/usr/share/wildfly/modules"
+Environment="WILDFLY_BIND=0.0.0.0"
+Environment="WILDFLY_OPTS="
+EnvironmentFile=-/etc/opt/rh/eap<%= @major_version -%>/wildfly/eap<%= @major_version -%>-domain.conf
+EnvironmentFile=-/opt/rh/eap<%= @major_version -%>/service-environment
+PIDFile=/var/opt/rh/eap<%= @major_version -%>/run/wildfly/eap<%= @major_version -%>-domain.pid
+ExecStart=/usr/bin/scl enable $EAP<%= @major_version -%>_SCLS_ENABLED -- /opt/rh/eap<%= @major_version -%>/root/usr/share/wildfly/bin/launch.sh $JAVA_HOME $JAVAPTH $WILDFLY_MODULEPATH $WILDFLY_SH $WILDFLY_SERVER_CONFIG $WILDFLY_BIND $WILDFLY_CONSOLE_LOG H$WILDFLY_HOST_CONFIG O$WILDFLY_OPTS
+<% end %>
+
+[Install]
+Alias=<%= @service_name -%>.service jboss.service eap.service
+WantedBy=multi-user.target
+
