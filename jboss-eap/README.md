@@ -66,8 +66,7 @@ Como criar databag?
 ```
 
 ### LDAPS
-- usuários: O indicado por `principal` e os usuários `jboss_suser` (role Superuser) e `jboss_bind` (role Monitor)
-- grupos: jboss_administrator, jboss_monitor e jboss_deployer
+- usuários: O indicado por `principal-acc` será adicionado com a role Monitor.
 
 ### Custom "infra team" system-properties
 - `segsap.modcluster.lbgroup`: Opcional. Default: `<profile_name>Default`. Configura atributo "load-balancing-group" do proxy default do modcluster. Interessante para uso em ambientes com mais de 1 server-group por aplicação, assim pode-se fazer (em alguns cenários) atualização da aplicação sem perda de sessão (sticky-session, suspend, deploy, resume...).
