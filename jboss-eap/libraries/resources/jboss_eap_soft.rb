@@ -63,14 +63,6 @@ module InfraEAP
         end
       end
       
-      if version < 6.4
-        package %w(java-1.8.0-openjdk java-1.8.0-openjdk-headless) do
-          action :remove
-        end
-
-        package 'java-1.7.0-openjdk'
-      end
-
       if is_rpm
         execute "Installing Group #{yum_group_name}" do
           command "yum -y groupinstall #{yum_group_name}"
@@ -84,6 +76,16 @@ module InfraEAP
           not_if { jboss_eap_dir.eql?(jboss_install_dir) }
         end
       else
+        if version < 6.4
+          package %w(java-1.8.0-openjdk java-1.8.0-openjdk-headless) do
+            action :remove
+          end
+
+          package 'java-1.7.0-openjdk'
+        else
+          package 'java-1.8.0-openjdk'
+        end
+        
         eap_zip_file_name =  eap_zip_url.split('/')[-1]
         eap_zip_local_path = "/tmp/#{eap_zip_file_name}"
 
