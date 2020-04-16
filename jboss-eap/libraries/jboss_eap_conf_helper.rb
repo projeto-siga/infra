@@ -99,7 +99,7 @@ module InfraEAP
     def f_service_status_since_time(p_service_name)
       v_cmd = "systemctl status #{p_service_name} | grep Active | sed -e 's/^.*since [A-Z]\\{1\\}[a-z]\\{2\\} \\([0-9|-]* [0-9|:]*\\) .*;.*/\\1/g' -e 's/-\\|:\\| //g'"
       log v_cmd
-      v_time = response(v_cmd)
+      v_time = response(v_cmd).strip
       log v_time
       if v_time.empty?
         v_time = 0

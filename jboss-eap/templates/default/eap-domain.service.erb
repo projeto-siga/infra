@@ -5,13 +5,13 @@ Before=httpd.service
 
 [Service]
 LimitNOFILE=102642
-<%if @version < 7.0 %>
+<%if !@is_rpm %>
 TimeoutStartSec=600
 TimeoutStopSec=600
 ExecStart=<%= @init_script -%> start
 ExecStop=<%= @init_script -%> stop
 ExecReload=<%= @init_script -%> restart
-PIDFile=/var/run/jboss-as/jboss-as-domain.pid
+PIDFile=<% if @major_version < 7 %>/var/run/jboss-as/jboss-as-domain.pid<% else %>/var/run/jboss-eap/jboss-eap.pid<% end %>
 <% else %>
 User=jboss
 Group=jboss

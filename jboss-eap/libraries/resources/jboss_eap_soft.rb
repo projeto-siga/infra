@@ -138,8 +138,16 @@ module InfraEAP
           not_if { ::File.exist?(f_log_dir()) }
         end
 
+        directory f_data_dir() do
+          owner 'jboss'
+          group 'root'
+          mode '0750'
+          action :create
+          not_if { ::File.exist?(f_data_dir()) }
+        end        
+
         execute 'Acerta permissões do domain' do
-          command "chown -R jboss #{f_domain_dir()}/*"
+          command "chown -R jboss #{f_domain_dir()}"
           action :run
         end
         

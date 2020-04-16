@@ -76,6 +76,10 @@ module InfraEAP
     def f_config_dir
       "#{f_domain_dir()}/configuration"
     end
+  
+    def f_data_dir
+      "#{f_domain_dir()}/data"
+    end
 
     def f_default_conf(p_major_version)
       f_is_rpm_install() ? EAP::JBOSS_DEFAULT_CONF.fetch(:rpm).fetch(p_major_version.to_s.to_sym) : EAP::JBOSS_DEFAULT_CONF.fetch(:zip).fetch(p_major_version.to_s.to_sym)

@@ -1,4 +1,4 @@
-<% var_prefix = @version < 7  ? 'JBOSS_' : 'WILDFLY_' -%>
+<% var_prefix = @version < 7 || @is_rpm == false  ? 'JBOSS_' : 'WILDFLY_' -%>
 # The configuration you want to run
 
 # Location of java in the JRE (the default)
@@ -17,17 +17,17 @@
 #<%= @version < 7 ? var_prefix.gsub('_', '') : var_prefix -%>SH="<%= @init_script -%>"
 
 # Define server configuration to start, eg. standalone.xml
-<%= var_prefix %><%= @version > 7 ? 'SERVER' : 'DOMAIN' -%>_CONFIG="<%= @domain_config_file %>"
+<%= var_prefix %><%= @version > 7 &&  @is_rpm ? 'SERVER' : 'DOMAIN' -%>_CONFIG="<%= @domain_config_file %>"
 
-<% if @version < 7.0 %>
+<% if @version < 7.0 || @is_rpm == false %>
 # Define domain mode
-<%= var_prefix.gsub('_', '') -%>CONF=domain
+<%= @version < 7.0 ? "#{var_prefix.gsub('_', '')}CONF" : "#{var_prefix}MODE" -%>=domain
 
 # The amount of time to wait for startup - seconds
 <%= var_prefix -%>STARTUP_WAIT="600"
 
 # The amount of time to wait for shutdown - seconds
-<%= var_prefix -%>SHUTDOWN_WAIT="240"
+<%= var_prefix -%>SHUTDOWN_WAIT="600"
 <% end %>
 
 # Define host configuration to start, eg. host.xml
@@ -43,7 +43,7 @@
 # Additionals args to include on startup
 #<%= var_prefix -%>OPTS=
 
-<% if @version < 7 %>
+<% if @version < 7 || @is_rpm == false %>
 <%= var_prefix -%>USER=jboss
 
 <%= var_prefix -%>GROUP=jboss

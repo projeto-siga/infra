@@ -48,11 +48,11 @@ module InfraEAP
       first_config_run = ::File.exist?("#{jboss_eap_dir}/first_config_run")
       
       if (first_config_run && major_version > 6) || f_is_service_active(service_name)
-        snap_file_name = "before_chef_run_#{::Time.now.strftime('%Y%m%d_%H%M%S')}_"
-        cli_command = "try, /host=#{node['hostname']}:take-snapshot(name=#{snap_file_name}), "
+        snap_args = major_version < 7 ? '': "name=before_chef_run_#{::Time.now.strftime('%Y%m%d_%H%M%S')}_"
+        cli_command = "#{major_version < 7 ? '': 'try, '}/host=#{node['hostname']}:take-snapshot(#{snap_args}), "
         cli_command = "#{cli_command}if (result != \"undefined\") of /:query(select=[process-type],where=[process-type,\"Domain Controller\"]), "
-        cli_command = "#{cli_command}/:take-snapshot(name=#{snap_file_name}), end-if, "
-        cli_command = "#{cli_command}catch, echo IhTvErroNaFirstRun, end-try"
+        cli_command = "#{cli_command}/:take-snapshot(#{snap_args}), end-if"
+        cli_command = "#{cli_command}#{major_version < 7 ? '': ', catch, echo IhTvErroNaFirstRun, end-try'}"
         exec_cli_resource cli_command do
           live_stream true
           run_offline major_version > 6
@@ -617,7 +617,8 @@ module InfraEAP
           version: version,
           jboss_install_home_dir: jboss_install_home_dir,
           log_path: log_dir,
-          init_script: f_init_script()
+          init_script: f_init_script(),
+          is_rpm: f_is_rpm_install()
         )
       end
 
@@ -631,7 +632,8 @@ module InfraEAP
           service_name: service_name,
           version: version,
           major_version: major_version,
-          init_script: f_init_script()
+          init_script: f_init_script(),
+          is_rpm: f_is_rpm_install()
         )
       end
 

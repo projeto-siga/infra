@@ -19,6 +19,13 @@ module EAP
         link_service_conf: '/etc/jboss-as/jboss-as.conf',
         init_script: 'bin/init.d/jboss-as-domain.sh',
         started_code: 'JBAS015874'
+      },
+      '7': {
+        jboss_home: '',
+        service_conf: 'bin/init.d/jboss-eap.conf',
+        link_service_conf: '/etc/default/jboss-eap.conf',
+        init_script: 'bin/init.d/jboss-eap-rhel.sh',
+        started_code: 'WFLYSRV0025'
       }
     }
   }
