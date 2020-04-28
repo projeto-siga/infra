@@ -781,7 +781,7 @@ module InfraEAP
           )
         end
 
-        v_srv_grps_desired_state = f_remove_keys(v_server_groups, ['heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size', 'system-properties','slave-hosts'])
+        v_srv_grps_desired_state = f_remove_keys(v_server_groups, ['heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size', 'system-properties','slave-hosts', 'enable-debug', 'jvm-options'])
 
         cli_resource 'server-groups' do
           profile_name profile_name
@@ -794,10 +794,9 @@ module InfraEAP
         end
 
         v_server_groups.each_pair do |srv_group_name, one_srv_grp_cfg|
-          jvms_desired_state = {}
-          jvms_desired_state[srv_group_name] = one_srv_grp_cfg.reject{ |k,v| !['heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size'].include? k }
+          jvms_desired_state = f_desired_jvm(srv_group_name, one_srv_grp_cfg)
 
-          cli_resource 'jvms' do
+          cli_resource "jvm-#{srv_group_name}" do
             profile_name profile_name
             desired_state jvms_desired_state
             resource_address "/server-group=#{srv_group_name}"
@@ -806,16 +805,6 @@ module InfraEAP
             cert_path cert_path
             username ldap_jboss_acc
             userpw ldap_jboss_pw
-          end
-
-          exec_cli_resource "#{profile_name}-jvm-#{srv_group_name}-options" do
-            template 'servergroups.cli.erb'
-            live_stream true
-            echo_command major_version > 6
-            template_variables(
-              server_group_name: srv_group_name
-            )
-            action :apply
           end
 
           if one_srv_grp_cfg.has_key? 'system-properties'
@@ -997,6 +986,32 @@ module InfraEAP
       end
 
       f_my_server_groups().each_pair do |_profile_name, server_groups|
+        
+        server_groups.each_pair do |_srv_grp_name, one_srv_grp_cfg|
+          if f_enable_srv_group_debug(one_srv_grp_cfg)
+            v_debug_port = f_srv_group_debug_port(one_srv_grp_cfg)
+            execute "OpenConsole Port #{v_debug_port}" do
+              command "firewall-cmd --add-port=#{v_debug_port}/tcp --permanent"
+              not_if "firewall-cmd --list-port | egrep -i  '\\b#{v_debug_port}/tcp'"
+              notifies :reload, 'service[firewalld]', :immediately
+              action :run
+            end
+          else
+            v_debug_port = f_srv_group_debug_port(one_srv_grp_cfg)
+            execute "OpenConsole Port #{v_debug_port}" do
+              command "firewall-cmd --remove-port=#{v_debug_port}/tcp --permanent"
+              only_if "firewall-cmd --list-port --permanent | egrep -i  '\\b#{v_debug_port}/tcp'"
+              action :run
+            end
+
+            execute "OpenConsole Port #{v_debug_port}" do
+              command "firewall-cmd --remove-port=#{v_debug_port}/tcp"
+              only_if "firewall-cmd --list-port | egrep -i  '\\b#{v_debug_port}/tcp'"
+              action :run
+            end
+          end
+        end
+
         exec_cli_resource 'server_config' do
           template 'serverconfigs.cli.erb'
           template_variables(

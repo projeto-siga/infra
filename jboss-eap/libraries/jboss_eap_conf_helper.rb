@@ -157,6 +157,73 @@ module InfraEAP
 
       v_desired_mod_cluster_cfg
     end
+
+    def f_srv_grp_jvm_options(p_one_srv_grp_cfg)
+      init_mem_cfg_name = "-Xss"
+      init_mem_cfg = "#{init_mem_cfg_name}256K"
+      init_jvm_options = [\
+                      "-Dorg.jboss.resolver.warning=true",\
+                      "-Dsun.rmi.dgc.server.gcInterval=3600000",\
+                      "-Dsun.lang.ClassLoader.allowArraySyntax=true",\
+                      "-Dfile.encoding=utf-8",\
+                      "-Duser.language=pt",\
+                      "-Duser.region=BR",\
+                      "-Duser.country=BR",\
+                      "-Djava.awt.headless=true",\
+                      "#{init_mem_cfg}",\
+                      "-Djava.security.egd=file:/dev/./urandom"\
+                    ]
+    
+    v_jvm_options = p_one_srv_grp_cfg.fetch('jvm-options',[])
+    v_desired_jvm_options = []
+    
+    if !v_jvm_options.nil? && !v_jvm_options.empty?
+      v_jvm_options.each do |one_option|
+        option_name = one_option.split('=')[0]
+        name_end_pos = option_name.length
+        selected_option = init_jvm_options.select {|item| item.eql?(option_name) || item[0..name_end_pos].eql?("#{option_name}=") }
+        if selected_option.one?
+          init_jvm_options.delete(selected_option[0])
+        elsif option_name[0..3].eql?(init_mem_cfg_name) 
+          init_jvm_options.delete(init_mem_cfg)
+        end
+
+        v_desired_jvm_options = v_desired_jvm_options << one_option
+        
+      end
+      v_desired_jvm_options = v_desired_jvm_options.uniq + init_jvm_options
+    else
+      v_desired_jvm_options = init_jvm_options
+    end
+    if f_enable_srv_group_debug(p_one_srv_grp_cfg)
+      v_desired_jvm_options = v_desired_jvm_options << "-agentlib:jdwp=transport=dt_socket,address=#{f_srv_group_debug_port(p_one_srv_grp_cfg)},server=y,suspend=n"
+    end
+    v_desired_jvm_options        
+  end
+
+  def f_base_debug_port
+    f_domain_cfg.fetch('debug-base-port', 8087).to_i
+  end
+
+  def f_srv_group_debug_port(p_one_srv_grp_cfg)
+    f_base_debug_port() + f_srv_port_offset(p_one_srv_grp_cfg).to_i
+  end
+
+  def f_srv_port_offset(p_one_srv_grp_cfg)
+    p_one_srv_grp_cfg.fetch('socket-binding-port-offset', 0)
+  end
+
+  def f_enable_srv_group_debug(p_one_srv_grp_cfg)
+    f_domain_cfg().fetch('enable-debug', false) || p_one_srv_grp_cfg.fetch('enable-debug', false)
+  end
+
+  def f_desired_jvm(p_one_srv_grp_name, p_one_srv_grp_cfg)
+    v_jvm_desired_state = {}
+    v_jvm_desired_state[p_one_srv_grp_name] = p_one_srv_grp_cfg.reject{ |k,v| !['heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size'].include? k }
+    v_jvm_desired_state[p_one_srv_grp_name]['jvm-options'] = f_srv_grp_jvm_options(p_one_srv_grp_cfg)
+
+    v_jvm_desired_state
+  end
 =begin
     def f_profile_version(p_one_profile_cfg)
       p_one_profile_cfg.fetch('version', f_domain_version())

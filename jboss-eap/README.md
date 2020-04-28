@@ -66,7 +66,7 @@ Como criar databag?
 ```
 
 ### LDAPS
-- usuários: O indicado por `principal-acc` será adicionado com a role Monitor.
+- usuários: O indicado por `principal-acc`  será adicionado com a role Monitor.
 
 ### Custom "infra team" system-properties
 - `segsap.modcluster.lbgroup`: Opcional. Default: `<profile_name>Default`. Configura atributo "load-balancing-group" do proxy default do modcluster. Interessante para uso em ambientes com mais de 1 server-group por aplicação, assim pode-se fazer (em alguns cenários) atualização da aplicação sem perda de sessão (sticky-session, suspend, deploy, resume...).
@@ -106,6 +106,8 @@ Configura-se o domínio com um Hash chamada `jboss`.
 - `is-rpm`: Boolean. Opcional. Default true se version >= 7.0, caso contrário, false.
 - `eap-zip-url`: String. Opcional se `is-rpm` = true. URL do pacote zip que contém a instalação do EAP na versão `version`.
 - `reinstall`: Boolean. Opcional. Default: false. Faz uninstall seguido de install a cada execução da receita.
+- `debug-base-port`: Integer. Opcional. Default: 8087
+- `enable-debug`: Boolean. Opcional. Default: false. Liga debug para todos os servers na porta `jboss.debug-base-port + jboss.profiles.<profile_name>.server-groups.<srv_grp_name>.socket-binding-port-offset`
 - `master-address`: String. Obrigatório. IP do servidor (com o qualificador do domínio) que terá o papel de domain controller (master host). 
 - `master-fqdn`: String. Opcional. Nome do servidor (com o qualificador do domínio) que terá o papel de domain controller (master host). Em ambientes com DNS server, se não especificado é descoberto automaticamente.
 - `slave-hosts`: List. Identificação do nomes dos slave hosts (sem o qualicador do domínio) que compõem o domínio junto com o master.
@@ -128,6 +130,8 @@ Exemplo:
   "eap-dir": "/opt/jboss",
   "eap-zip-url": "",
   "reinstall": false,
+  "debug-base-port": 8087,
+  "enable-debug": true,
   "master-address": "192.168.0.1",
   "master-fqdn": "meumaster.localdomain",
   "slave-hosts": ["slave71","slave72"],
@@ -404,6 +408,8 @@ Especificação de `server-groups`:
   - `max-heap-size`: String.
   - `permgen-size`: String.
   - `max-permgen-size`: String.
+  - `enable-debug`: Boolean. Opcional. Default: false. Liga debug para servers deste grupo na porta `jboss.debug-base-port + socket-binding-port-offset`. Esse atributo no escopo de server group só é efetivo se `jboss.enable-debug` (atributo global) for false (valor default se não especificado).
+  - `jvm-options`: Array. Opcional. Default: ["-Dorg.jboss.resolver.warning=true", "-Dsun.rmi.dgc.server.gcInterval=3600000", "-Dsun.lang.ClassLoader.allowArraySyntax=true", "-Dfile.encoding=utf-8", "-Duser.language=pt", "-Duser.region=BR", "-Duser.country=BR", "-Djava.awt.headless=true", "Xss256K", "-Djava.security.egd=file:/dev/./urandom"]. Os valores default são combinados aos especificados aqui. Se deseja mudar o comportamento de alguma option default, deve especificá-la com valor desejado nesse atributo. 
 
 
 Exemplo: 
@@ -414,6 +420,8 @@ Exemplo:
       "sigadoc": {
         "server-groups": {
           "siga": {
+            "enable-debug": true,
+            "jvm-options": ["-Duser.language=en", "-Duser.region=US", "-Duser.country=US"],
             "profile": "sigadoc",
             "slave-hosts": ["slave71"],
             "socket-binding-port-offset": 0,
