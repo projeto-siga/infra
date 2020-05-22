@@ -120,11 +120,66 @@ end-if
 #########################
 # Undertow Basic CONFIG #
 #########################
-/profile=<%= @new_profile_name -%>/subsystem=undertow/buffer-cache=default:write-attribute(name=buffer-size,value=<%= @undertow_buffer_size -%>)
+if (result != <%= @undertow_buffer_size -%>) of /profile=<%= @new_profile_name -%>/subsystem=undertow/buffer-cache=default:read-attribute(name=buffer-size)
+  /profile=<%= @new_profile_name -%>/subsystem=undertow/buffer-cache=default:write-attribute(name=buffer-size,value=<%= @undertow_buffer_size -%>)
+end-if
 # REMOVE CONTEXT ROOT FROM UNDERTOW
  if (outcome == success) of /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/location=\/:read-resource
   /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/location=\/:remove
 end-if
+
+########################
+# Undertor SSO  CONFIG #
+########################
+####https://access.redhat.com/solutions/2650221
+<% if @enable_sso %>
+if (outcome == "success") of /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/setting=single-sign-on:read-resource()
+  /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/setting=single-sign-on:add()
+end-if
+if (result == undefined) of /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/setting=single-sign-on:read-attribute(name=domain)
+  /profile=<%= @new_profile_name -%>/subsystem=undertow/server=default-server/host=default-host/setting=single-sign-on:write-attribute(name=domain,value="${jboss.web.cluster.sso.domain:<%= @webservice_fqdn -%>}")
+end-if
+<% end %>
+
+##########################
+# JGROUPS TCPPING CONFIG #
+##########################
+####https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html-single/configuration_guide/index#configure_tcpping_stack
+####https://access.redhat.com/solutions/3021711
+<% if !@use_local_srv_cache || !@use_local_web_cache || !@use_local_ejb_cache || !@use_local_hb_cache %>
+try
+batch
+# Add the tcpping stack
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping:add
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping:add-protocol(type="TCPPING")
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/transport=TRANSPORT:add(socket-binding=jgroups-tcp,type="TCP")
+run-batch
+catch
+echo IhJaTava
+end-try
+try
+batch
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=org.jgroups.protocols.TCPPING/property=initial_hosts:add(value="${jboss.cluster.tcp.initial_hosts}"),
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=org.jgroups.protocols.TCPPING/property=port_range:add(value="${jboss.cluster.tcp.port_range:0}"),
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=MERGE3:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=FD_SOCK:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=FD_ALL:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=VERIFY_SUSPECT:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=pbcast.NAKACK2:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=UNICAST3:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=pbcast.STABLE:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=pbcast.GMS:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=pbcast.GMS/property=join_timeout:add(value="${jboss.cluster.tcp.timeout:3000}")
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=MFC:add,
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/stack=tcpping/protocol=FRAG2:add,
+# Set tcpping as the stack for the ee channel
+/profile=<%= @new_profile_name -%>/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=tcpping),
+/profile=<%= @new_profile_name -%>/subsystem=jgroups:write-attribute(name=default-stack,value=tcpping),
+run-batch
+catch
+echo IhJaTava
+end-try
+<% end %>
 
 #################
 # CONFIGURE LOG #

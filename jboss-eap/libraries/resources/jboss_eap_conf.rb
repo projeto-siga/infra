@@ -78,6 +78,7 @@ module InfraEAP
       credstore_dir = new_resource.credstore_dir
       profiles_cfg = new_resource.profiles_cfg
       major_version = new_resource.major_version
+      version = new_resource.version
       truststore_secret = f_truststore_secret()
       is_remote_log = f_is_remote_log()
       logserver_addr = f_logserver_addr()
@@ -86,11 +87,11 @@ module InfraEAP
       console_ports = f_default_master_console_port()
       cluster_port = f_default_cluster_port()
       master_ssl_keystore = f_master_ssl_keystore()
+      https_truststore_path = f_https_truststore_path()
       lowest_version_on_domain = f_lowest_slave_version()
       service_name = new_resource.service_name
       started_code = new_resource.started_code
       log_dir = new_resource.log_dir
-
       
       console_ports.each do |one_port|
         execute "OpenConsole Port #{one_port}" do
@@ -104,10 +105,10 @@ module InfraEAP
       f_all_slavenames().each do |one_slavename|
         slave_secret = f_slave_secret(one_slavename)
         execute "config slave #{one_slavename}" do
-          command "#{jboss_eap_dir}/bin/add-user.sh -u #{one_slavename} -r ManagementRealm -cw -p '#{slave_secret}'"
+          command "#{jboss_eap_dir}/bin/add-user.sh -u #{one_slavename} -r ManagementRealm -cw -p '#{slave_secret}'#{version < 6.4 ? ' --silent' : ''}"
           action :run
           not_if "grep -q #{one_slavename} #{configuration_dir}/mgmt-users.properties"
-          sensitive true
+          sensitive false
         end
       end
       
@@ -136,13 +137,21 @@ module InfraEAP
             truststore_secret: truststore_secret,
             truststore_base_dir: truststore_dir,
             master_ssl_keystore: master_ssl_keystore,
+            https_truststore_path: https_truststore_path,
             domain_name: domain_name,
             enable_native_9999: lowest_version_on_domain < 7
           )
         end
 
+        ruby_block 'call_me_back_action:init_vault_keystore' do
+          block do
+            action_init_vault_keystore
+          end
+          action :run
+        end
+
         if lowest_version_on_domain < 7
-          exec_cli_resource 'jboss_host_controller_setup' do
+          exec_cli_resource 'jboss_eap6_compatible_sockets' do
             live_stream true
             echo_command true
             template 'eap6-compatible.cli.erb'
@@ -162,7 +171,7 @@ module InfraEAP
           domain_config_file domain_config_file
           configuration_dir configuration_dir
           domain_version domain_version
-          major_version major_version
+          version version
           action :config_master
         end
 
@@ -170,6 +179,7 @@ module InfraEAP
           domain_config_file domain_config_file
           configuration_dir configuration_dir
           domain_version domain_version
+          domain_name domain_name
           action :preconfig_domain
         end
 
@@ -197,7 +207,12 @@ module InfraEAP
             action :create
             variables(
               webservice_fqdn: f_profile_webservice_fqdn(one_profile_cfg),
-              profile_name: profile_name
+              profile_name: profile_name,
+              use_local_hb_cache: f_use_local_hibernate_cache(one_profile_cfg),
+              use_local_ejb_cache: f_use_local_ejb_cache(one_profile_cfg),
+              use_local_web_cache: f_use_local_web_cache(one_profile_cfg),
+              use_local_srv_cache: f_use_local_server_cache(one_profile_cfg),
+              enable_sso: f_enable_sso(one_profile_cfg)
             )
           end
 
@@ -255,7 +270,8 @@ module InfraEAP
               use_local_hb_cache: f_use_local_hibernate_cache(one_profile_cfg),
               use_local_ejb_cache: f_use_local_ejb_cache(one_profile_cfg),
               use_local_web_cache: f_use_local_web_cache(one_profile_cfg),
-              use_local_srv_cache: f_use_local_server_cache(one_profile_cfg)
+              use_local_srv_cache: f_use_local_server_cache(one_profile_cfg),
+              enable_sso: f_enable_sso(one_profile_cfg)
             )
           end
         end
@@ -285,7 +301,7 @@ module InfraEAP
           action_setup_ldap
         end
         action :run
-        not_if domain_version < 7.1
+#        not_if domain_version < 7.1
       end
       
       ruby_block 'call_me_back_action:setup_master_cli' do
@@ -296,6 +312,25 @@ module InfraEAP
       end
     end
 
+    action :init_vault_keystore do
+      host_config_file = new_resource.host_config_file
+      domain_config_file = new_resource.domain_config_file
+      version = new_resource.version
+      service_name = new_resource.service_name
+
+      if version > 7.0
+        exec_cli_resource 'JBoss VAULT Init' do
+          cfg_vault_cmd = "try, #{f_init_vault()}, catch, echo IhJaTaVa, end-try"
+          sensitive true
+          cli_commands cfg_vault_cmd
+          host_config_file host_config_file
+          domain_config_file domain_config_file
+          run_offline !f_is_service_active(service_name)
+          action :apply
+        end
+      end
+    end
+
     action :setup_cli do
       domain_config_file = new_resource.domain_config_file
       host_config_file = new_resource.host_config_file
@@ -303,6 +338,7 @@ module InfraEAP
       jboss_eap_dir = new_resource.jboss_eap_dir
       master_ipaddress = new_resource.master_ipaddress
       major_version = new_resource.major_version
+      version = new_resource.version
       master_ssl_keystore = f_master_ssl_keystore()
       is_master = new_resource.is_master
       my_cert_path = f_my_cert_path()
@@ -362,6 +398,7 @@ module InfraEAP
           keystore: jb_cli_trust_str_path,
           storepass: jbcli_trust_str_pswd,
           major_version: major_version,
+          version: version,
           is_master: is_master,
           jboss_eap_dir: jboss_eap_dir          
           )
@@ -374,6 +411,8 @@ module InfraEAP
       credstore_dir = new_resource.credstore_dir
       is_master = new_resource.is_master
       truststore_dir = new_resource.truststore_dir
+      domain_version = new_resource.domain_version
+      version = new_resource.version
       truststore_secret = f_truststore_secret()
       ldap_credstore_name = f_ldap_credstore_name()
       ldap_credstore_pw = f_ldap_credstore_pw()
@@ -382,39 +421,42 @@ module InfraEAP
       ldap_principal = f_ldap_principal()
       ldap_principal_pw = f_ldap_principal_pw()
       ldap_server_url = f_ldap_server_url()
-      ldap_server_address = ldap_server_url[(ldap_server_url.rindex(/\//)) + 1 .. ldap_server_url.length].strip
+      ldap_server_address = f_ldap_server_address()
       ldap_port = 636
       ldap_credstore_path = "#{credstore_dir}/#{ldap_credstore_name}.jceks"
-      ldap_cert_path = "#{f_sys_ca_cert_dir()}/#{ldap_server_address}.crt"
+      ldap_cert_path = f_ldap_cert_path()
       jboss_user_roles = f_jboss_user_roles()
       jboss_ldap_role_mappings = f_jboss_ldap_role_mappings()
       ldap_srv_cert_update = '/tmp/ldap.update'
       ldap_cred_alias = 'ldapjboss-pw'
+      ldap_truststore_path = f_ldap_truststore_path()
       
-      exec_cli_resource 'JBoss LDAP Credential Store' do
-        ldap_setup_credstore_cmd = "if (outcome != success) of  /host=#{node['hostname']}/subsystem=elytron/credential-store=#{ldap_credstore_name}:read-resource,"
-        ldap_setup_credstore_cmd = "#{ldap_setup_credstore_cmd} /host=#{node['hostname']}/subsystem=elytron/credential-store=#{ldap_credstore_name}:add("
-        ldap_setup_credstore_cmd = "#{ldap_setup_credstore_cmd}location=#{ldap_credstore_path}, credential-reference={"
-        ldap_setup_credstore_cmd = "#{ldap_setup_credstore_cmd}clear-text=#{ldap_credstore_pw}}, create=true), end-if"
-        sensitive true
-        cli_commands ldap_setup_credstore_cmd
-        host_config_file host_config_file
-        domain_config_file domain_config_file
-        run_offline true
-        action :apply
-      end
+      if version > 7.0
+        exec_cli_resource 'JBoss LDAP Credential Store' do
+          ldap_setup_credstore_cmd = "if (outcome != success) of  /host=#{node['hostname']}/subsystem=elytron/credential-store=#{ldap_credstore_name}:read-resource,"
+          ldap_setup_credstore_cmd = "#{ldap_setup_credstore_cmd} /host=#{node['hostname']}/subsystem=elytron/credential-store=#{ldap_credstore_name}:add("
+          ldap_setup_credstore_cmd = "#{ldap_setup_credstore_cmd}location=#{ldap_credstore_path}, credential-reference={"
+          ldap_setup_credstore_cmd = "#{ldap_setup_credstore_cmd}clear-text=#{ldap_credstore_pw}}, create=true), end-if"
+          sensitive true
+          cli_commands ldap_setup_credstore_cmd
+          host_config_file host_config_file
+          domain_config_file domain_config_file
+          run_offline true
+          action :apply
+        end
 
-      exec_cli_resource 'Add LDAP Passowrd to Credential Store' do
-        add_ldap_pwd2str_cmd = "try, /host=#{node['hostname']}/subsystem=elytron/credential-store=#{ldap_credstore_name}:add-alias("
-        add_ldap_pwd2str_cmd = "#{add_ldap_pwd2str_cmd}alias=#{ldap_cred_alias}, secret-value=\"#{ldap_principal_pw}\")"
-        add_ldap_pwd2str_cmd = "#{add_ldap_pwd2str_cmd}, catch, echo ja instalado ou erro. Se liga ahi, finally, echo fim, end-try"
-        sensitive true
-        cli_commands add_ldap_pwd2str_cmd
-        host_config_file host_config_file
-        domain_config_file domain_config_file
-        run_offline true
-        action :apply
-      end
+        exec_cli_resource 'Add LDAP Passowrd to Credential Store' do
+          add_ldap_pwd2str_cmd = "try, /host=#{node['hostname']}/subsystem=elytron/credential-store=#{ldap_credstore_name}:add-alias("
+          add_ldap_pwd2str_cmd = "#{add_ldap_pwd2str_cmd}alias=#{ldap_cred_alias}, secret-value=\"#{ldap_principal_pw}\")"
+          add_ldap_pwd2str_cmd = "#{add_ldap_pwd2str_cmd}, catch, echo ja instalado ou erro. Se liga ahi, finally, echo fim, end-try"
+          sensitive true
+          cli_commands add_ldap_pwd2str_cmd
+          host_config_file host_config_file
+          domain_config_file domain_config_file
+          run_offline true
+          action :apply
+        end
+       end
 
       get_certificate 'get ldap server certificate' do
         address ldap_server_address
@@ -426,26 +468,36 @@ module InfraEAP
         action :do
       end
 
-      exec_cli_resource 'Setup ldap' do
-        template 'setup.ldap.cli.erb'
-        host_config_file host_config_file
-        domain_config_file domain_config_file
-        run_offline true
-        action :apply
-        template_variables(
-          ldap_url: ldap_server_url,
-          ldap_principal: ldap_principal,
-          ldap_filter_base_dn: ldap_filter_base_dn,
-          ldap_search_base_dn: ldap_search_base_dn,
-          ldap_credential_store_name: ldap_credstore_name,
-          ldap_cred_alias:  ldap_cred_alias,
-          ldap_cert_path: ldap_cert_path,
-          truststore_secret: truststore_secret,
-          truststore_base_dir: truststore_dir,
-          jboss_user_roles: jboss_user_roles,
-          jboss_ldap_role_mappings: jboss_ldap_role_mappings,
-          was_cert_updated: lazy { ::File.exist? ldap_srv_cert_update }
-        )
+      if version > 7.0
+        exec_cli_resource 'Setup ldap' do
+          template 'setup.ldap.cli.erb'
+          host_config_file host_config_file
+          domain_config_file domain_config_file
+          run_offline true
+          action :apply
+          template_variables(
+            ldap_url: ldap_server_url,
+            ldap_principal: ldap_principal,
+            ldap_filter_base_dn: ldap_filter_base_dn,
+            ldap_search_base_dn: ldap_search_base_dn,
+            ldap_credential_store_name: ldap_credstore_name,
+            ldap_cred_alias:  ldap_cred_alias,
+            ldap_cert_path: ldap_cert_path,
+            truststore_secret: truststore_secret,
+            ldap_truststore_path: ldap_truststore_path,
+            jboss_user_roles: jboss_user_roles,
+            jboss_ldap_role_mappings: jboss_ldap_role_mappings,
+            was_cert_updated: lazy { ::File.exist? ldap_srv_cert_update }
+          )
+        end
+      else
+        keytool_manage "Importar Certificado #{ldap_cert_path} para ldap" do
+          cert_alias ldap_server_address
+          action :importcert
+          file ldap_cert_path
+          keystore ldap_truststore_path
+          storepass truststore_secret
+        end
       end
     end
 
@@ -470,13 +522,13 @@ module InfraEAP
       my_version = new_resource.version
       major_version = new_resource.major_version
 
-      ips_2_trust = [master_ipaddress] + cluster_address
+      addrs_2_trust = [master_ipaddress] + cluster_address
       pvt_if_fulladdr = f_private_fulladdress()
       has_pvt_jg_nw = pvt_if_fulladdr.nil? ? false : true
       pvt_if_ipaddr = has_pvt_jg_nw ? f_private_ipaddress(pvt_if_fulladdr) : nil
       pvt_if_ip_prefixlen = has_pvt_jg_nw ? f_private_ip_prefixlen(pvt_if_fulladdr) : 0
 
-      if has_pvt_jg_nw
+      if has_pvt_jg_nw and major_version > 6
         last_oct_addr = pvt_if_ipaddr.delete_prefix(EAP::PVT_JGROUPS_NETWORK).to_i
         nw_aux = pvt_if_ip_prefixlen.to_i - 24
         if nw_aux < 4 # too large network for us
@@ -488,15 +540,34 @@ module InfraEAP
           las_oct_mask = 256 - (8 - nw_aux)**2
           pvt_network_address = "#{EAP::PVT_JGROUPS_NETWORK}#{las_oct_mask & last_oct_addr}"
 
-          ips_2_trust << "#{pvt_network_address}/#{pvt_if_ip_prefixlen}"
+          addrs_2_trust << "#{pvt_network_address}/#{pvt_if_ip_prefixlen}"
+        end
+      elsif major_version < 7
+        jgroups_hosts = f_my_jgroups_hosts()
+        jgroups_hosts.each do |jg_member|
+          member_ip = jg_member.split(':')[0]
+          member_port = jg_member.split(':')[1]
+          if !member_ip.eql?("#{node['ipaddress']}/32")
+            v_firewall_cmd = 'firewall-cmd --permanent --zone=public --add-rich-rule=\'rule family="ipv4" source address="'
+            v_firewall_cmd = "#{v_firewall_cmd}#{member_ip}\" port protocol=\"tcp\" port=\"#{member_port}\" accept'"
+
+            execute "open jgroup port #{member_port} to #{member_ip}" do
+              command v_firewall_cmd
+              action :run
+              not_if "firewall-cmd --list-rich-rules --permanent | grep #{member_ip} | egrep -q '\\b#{member_port}\\b'"
+              notifies :reload, 'service[firewalld]', :immediately
+            end
+            
+          end
         end
       end
 
-      ips_2_trust.each do |trusted_ip|
+      addrs_2_trust.each do |trusted_addr|
+        trusted_ip = trusted_addr.match(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}.*/) ? trusted_addr : f_resolve_name(trusted_addr)
         execute 'firewalld-cmd ips to trust' do
           command "firewall-cmd --add-source=#{(trusted_ip.include? '/') ? trusted_ip : (trusted_ip + '/32')} --zone=trusted --permanent"
           action :run
-          not_if "firewall-cmd --list-all --zone=trusted | grep -q #{trusted_ip}"
+          not_if "firewall-cmd --list-all --zone=trusted --permanent | grep -q #{trusted_ip}"
           notifies :reload, 'service[firewalld]', :immediately
         end
       end
@@ -564,12 +635,18 @@ module InfraEAP
             domain_name: domain_name
           )
         end
+
+        ruby_block 'call_me_back_action:init_vault_keystore' do
+          block do
+            action_init_vault_keystore
+          end
+          action :run
+        end
       else
         jboss_eap_xml "Config XML on EAP #{f_my_version()}" do
           action :config_slave
           host_config_file host_config_file
           domain_config_file domain_config_file
-          host_config_content lazy { IO.read("#{configuration_dir}/#{host_config_file}") }
           configuration_dir configuration_dir
           log_dir log_dir
           master_ipaddress master_ipaddress
@@ -581,9 +658,8 @@ module InfraEAP
           truststore_secret truststore_secret
           truststore_dir truststore_dir
           has_pvt_jg_nw has_pvt_jg_nw
-          major_version major_version
+          version my_version
           pvt_if_ipaddr pvt_if_ipaddr
-          update_master_cert lazy { ::File.exist? master_cert_path_update }
           domain_name domain_name
         end
       end
@@ -647,16 +723,18 @@ module InfraEAP
         action [:enable, :start]
       end
 
-      file "#{configuration_dir}/#{domain_config_file}" do
-        content lazy { IO.read("#{configuration_dir}/domain.xml") }
-        action :create
-        owner EAP::JBOSS_USER
-        group EAP::JBOSS_GROUP
-        mode '0664'
-        not_if "test -f #{configuration_dir}/#{domain_config_file}"
-      end
+      f_init_vault_reqs()
 
       if major_version > 6 
+        file "#{configuration_dir}/#{domain_config_file}" do
+          content lazy { IO.read("#{configuration_dir}/domain.xml") }
+          action :create
+          owner EAP::JBOSS_USER
+          group EAP::JBOSS_GROUP
+          mode '0664'
+          not_if "test -f #{configuration_dir}/#{domain_config_file}"
+        end
+
         file "#{configuration_dir}/#{host_config_file}" do
           content lazy { IO.read("#{configuration_dir}/host-#{is_master ? 'master' : 'slave'}.xml") }
           action :create
@@ -737,7 +815,7 @@ module InfraEAP
         v_server_groups = f_profile_server_groups(one_profile_cfg)
         v_desired_out_state = f_desired_outbound_state(profile_name, one_profile_cfg)
         ['full-ha-sockets', 'ha-sockets'].each do |one_socket_binding_group|
-          cli_resource 'remote-destination-outbound-socket-binding' do
+          cli_resource "#{profile_name}-#{one_socket_binding_group}-remote-destination-outbound-socket-binding" do
             desired_state v_desired_out_state
             resource_address  "/socket-binding-group=#{one_socket_binding_group}"
             resource_type 'remote-destination-outbound-socket-binding'
@@ -749,7 +827,7 @@ module InfraEAP
         end
 
         v_desired_cluster_state = f_desired_modcluster_state(profile_name, one_profile_cfg)
-        cli_resource 'mod_cluster_config' do
+        cli_resource "#{profile_name}-mod_cluster_config" do
           profile_name profile_name
           desired_state v_desired_cluster_state
           resource_address  "/profile=#{profile_name}/subsystem=modcluster"
@@ -760,7 +838,7 @@ module InfraEAP
           userpw ldap_jboss_pw
         end
 
-        exec_cli_resource "mod_cluster_load_metrics" do
+        exec_cli_resource "#{profile_name}-mod_cluster_load_metrics" do
           template 'setup_modcluster.cli.erb'
           live_stream true
           echo_command major_version > 6
@@ -770,7 +848,7 @@ module InfraEAP
           )
         end
 
-        exec_cli_resource "webservice_config" do
+        exec_cli_resource "#{profile_name}-webservice_config" do
           template 'setup_webservices.cli.erb'
           live_stream true
           echo_command major_version > 6
@@ -837,52 +915,7 @@ module InfraEAP
         
         v_data_sources = f_profile_datasources(one_profile_cfg)
 
-        #sec domain for ds - legacy, but OK for now. Necessita mudanças no provisionamento para usar credentials no elytron.
-        v_data_sources.each_pair do |ds_name, one_ds_cfg|
-          v_txt_ds_pass = f_ds_password(ds_name, one_ds_cfg)
-          exec_cli_resource "security-domain-#{ds_name}" do
-            sensitive true
-            echo_command major_version > 6
-            major_version major_version
-            template 'securitydomains.cli.erb'
-            template_variables(
-              profile_name: profile_name,
-              name: "Encrypt#{ds_name}",
-              code: 'org.picketbox.datasource.security.SecureIdentityLoginModule',
-              flag: 'required',
-              module_options: [
-                "username=\"#{f_ds_username(ds_name, one_ds_cfg)}\"",
-                "password=\"#{f_encrypt_password(v_txt_ds_pass, module_dir)}\"",
-                "managedConnectionFactoryName=\"jboss.jca:name=#{ds_name},service=LocalTxCM\""
-              ]
-            )
-          end
-        end
-
         v_xa_data_sources = f_profile_xa_datasources(one_profile_cfg)
-
-        v_xa_data_sources.each_pair do |ds_name, one_ds_cfg|
-          v_txt_ds_pass = f_ds_password(ds_name, one_ds_cfg)
-          exec_cli_resource "security-domain-Xa-#{ds_name}" do
-            sensitive true
-            echo_command major_version > 6
-            major_version major_version
-            template 'securitydomains.cli.erb'
-            template_variables(
-              profile_name: profile_name,
-              name: "EncryptXa#{ds_name}",
-              code: 'org.picketbox.datasource.security.SecureIdentityLoginModule',
-              flag: 'required',
-              module_options: [
-                "username=\"#{f_ds_username(ds_name, one_ds_cfg)}\"",
-                "password=\"#{f_encrypt_password(v_txt_ds_pass, module_dir)}\"",
-                "managedConnectionFactoryName=\"jboss.jca:name=#{ds_name},service=LocalTxCM\""
-              ]
-            )
-          end
-        end
-
-
         #additional legacy sec domains
         f_profile_sec_domains(one_profile_cfg).each_pair do |sec_domain_name, one_sec_domain_cfg|
           v_domain_options = f_sec_domain_options(one_sec_domain_cfg)
@@ -903,7 +936,7 @@ module InfraEAP
           end
         end
 
-        v_ds_desired_state = f_desired_state_datasource(v_data_sources, 'Encrypt')
+        v_ds_desired_state = f_desired_state_datasource(v_data_sources)#, 'Encrypt')
         cli_resource 'datasources' do
           profile_name profile_name
           desired_state v_ds_desired_state
@@ -915,7 +948,8 @@ module InfraEAP
           userpw ldap_jboss_pw
         end
 
-        v_xa_ds_desired_state = f_remove_keys(v_xa_data_sources, ['xa-datasource-properties'])
+        #v_xa_ds_desired_state = f_remove_keys(v_xa_data_sources, ['xa-datasource-properties'])
+        v_xa_ds_desired_state = f_desired_state_xa_datasource(v_xa_data_sources)
         cli_resource 'xa-datasources' do
           profile_name profile_name
           desired_state v_xa_ds_desired_state
@@ -954,7 +988,7 @@ module InfraEAP
 
         v_syslog_handlers_ds_state.each_pair do |handler_name, _one_handler_cfg|
           exec_cli_resource 'add syslog handler'  do
-            cli_commands "try, /profile=#{profile_name}/subsystem=logging/root-logger=ROOT:add-handler(name=#{handler_name}), catch, echo Ihjatava, end-try"
+            cli_commands "try, /profile=#{profile_name}/subsystem=logging/root-logger=ROOT:add-handler(name=#{handler_name}), catch, #{version < 6.4 ? 'pwd' : 'echo Ihjatava'}, end-try"
             live_stream true
             echo_command major_version > 6
             major_version major_version
@@ -970,6 +1004,7 @@ module InfraEAP
       major_version = new_resource.major_version
       jboss_eap_dir = new_resource.jboss_eap_dir
       log_dir = new_resource.log_dir
+      profiles_cfg = new_resource.profiles_cfg
 
       f_service_up(service_name, started_code, "#{log_dir}/console.log")
 
@@ -985,8 +1020,12 @@ module InfraEAP
         action :create
       end
 
-      f_my_server_groups().each_pair do |_profile_name, server_groups|
-        
+      f_my_server_groups().each_pair do |profile_name, server_groups|
+
+        v_prof_datasources = f_profile_datasources(profiles_cfg.fetch(profile_name.to_s))
+
+        f_setup_vault_ds_passwords(v_prof_datasources)
+
         server_groups.each_pair do |_srv_grp_name, one_srv_grp_cfg|
           if f_enable_srv_group_debug(one_srv_grp_cfg)
             v_debug_port = f_srv_group_debug_port(one_srv_grp_cfg)
@@ -1012,7 +1051,7 @@ module InfraEAP
           end
         end
 
-        exec_cli_resource 'server_config' do
+        exec_cli_resource "#{profile_name}-server_config" do
           template 'serverconfigs.cli.erb'
           template_variables(
             server_groups: server_groups,

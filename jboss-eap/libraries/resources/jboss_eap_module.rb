@@ -64,6 +64,7 @@ module InfraEAP
             mode '0644'
             checksum package_rmt_info.fetch('checksum')
             action :create
+            not_if "test -f #{package_local_path}"
           end
 
           template "#{module_dir}/module.xml" do

@@ -54,6 +54,7 @@ A configuração do domínio EAP
 - `slave_conf`: Hash. Opcional. No momento, possui apenas o atributo `secret` para guarda a string que será usada para criação da senha do slave junto ao DC.
 - `trust_conf`: Hash. Opcional. No momento, possui apenas o atributo `secret` para guarda a string que será para proteção de keystore/truststore.
 - `jbosscli_conf`: Hash. Opcional. No momento, possui apenas o atributo `secret` para guarda a string que será para proteção de keystore/truststore do jboss-cli.
+- `vault_conf`: Hash. Opcional. Informações do Vault.
 
 
 
@@ -69,7 +70,40 @@ Como criar databag?
 - usuários: O indicado por `principal-acc`  será adicionado com a role Monitor.
 
 ### Custom "infra team" system-properties
-- `segsap.modcluster.lbgroup`: Opcional. Default: `<profile_name>Default`. Configura atributo "load-balancing-group" do proxy default do modcluster. Interessante para uso em ambientes com mais de 1 server-group por aplicação, assim pode-se fazer (em alguns cenários) atualização da aplicação sem perda de sessão (sticky-session, suspend, deploy, resume...).
+
+#### modcluster System Properties
+- `jboss.modcluster.load-balancing-group`: Opcional. Default: `<profile_name>Default`. Configura atributo "load-balancing-group" do proxy default do modcluster. Interessante para uso em ambientes com mais de 1 server-group por aplicação, assim pode-se fazer (em alguns cenários) atualização da aplicação sem perda de sessão (sticky-session, suspend, deploy, resume...).
+- `jboss.modcluster.balancer`: Opcional. Default: `<profile_name>`. Configura atributo balancer
+- `jboss.modcluster.excluded-contexts`: Opcional. Default: EAP7 "wildfly-services", EAP6 "ROOT,invoker,jbossws,juddi,console"
+- `jboss.modcluster.worker-timeout`: Opcional. Default -1
+- `jboss.modcluster.stop-context-timeout`: Opcional. Default 10`
+- `jboss.modcluster.node-timeout`: Opcional. Default -1
+- `jboss.modcluster.socket-timeout`: Opcional. Default 20
+- `jboss.modcluster.ping`: Opcional. Default 10
+- `jboss.modcluster.flush-wait`: Opcional. Default -1
+- `jboss.modcluster.smax`: Opcional. Default -1,
+- `jboss.modcluster.ttl`: Opcional. Default -1,
+- `jboss.modcluster.flush-packets`: Opcional. Default false,
+- `jboss.modcluster.auto-enable-contexts`: Opcional. Default true
+- `jboss.modcluster.max-attempts`: Default 1
+- `jboss.modcluster.sticky-session`: true
+- `jboss.modcluster.sticky-session-force`: false
+- `jboss.modcluster.sticky-session-remove`: false
+- `jboss.modcluster.session-draining-strategy`: Opcional. Default "DEFAULT". Ignorado em profiles para versões < 6.3
+
+#### JGroups System Properties (ver configuração de profile: `use-local-hibernate-cache`, `use-local-server-cache`, `use-local-ejb-cache` e `use-local-web-cache`)
+- Testado no EAP 6.3 por enquanto
+- O subsistema jgourps sempre será configurado com TCPPING (sem UDP). Essas system-properties devem ser configuradas em `server-groups`.`system-properties`
+  - `jboss.cluster.tcp.initial_hosts`: Obrigatório se qualquer um dos 4  parâmetros for true. (formato: "ip_slave[porta],ip_slave[porta]"). No EAP 7, deve ser o IP da interface private.
+  - `jboss.cluster.tcp.num_initial_members`: Obrigatório se qualquer um dos 4 parâmetros for true. Não foi usado na config do EAP 7.2 (deprecated).
+  - `jboss.cluster.tcp.port_range`: Opcional. Default:0
+  - `jboss.cluster.tcp.timeout`: Opcional. Default 3000
+
+#### SSO System Properties (ver configuração de profile: `enable-sso`)
+- Testado no EAP 6.3 por enquanto
+- Configurando Web Subsystem com Clustered SSO (cache container=web, cache-name=sso). Essas system-properties devem ser configuradas em `server-groups`.`system-properties`
+  - `jboss.web.cluster.sso.reauthenticate`: Opcional. Default: true
+  - `jboss.web.cluster.sso.domain`: Opcional. Default: `webservice-ext-fqdn`
 
 
 ## Attributes
@@ -281,6 +315,7 @@ Configura-se profiles do domínio através de `profiles`.
   - `use-local-ejb-cache`: Boolean. Opcional. Default true. Substitui no subsistema infinispan por local-cache. Não recomendado trocar a configuração após 1 execução sem `reinstall` true.
   - `use-local-web-cache`: Boolean. Opcional. Default true. Substitui no subsistema infinispan por local-cache. Não recomendado trocar a configuração após 1 execução sem `reinstall` true.
   - `activemq-pass`: String. Obrigatório se `src-profile-name` ~ /^full/. Senha do sistema messaging-activemq.
+  - `enable-sso`: Boolean. Opcional. Default false. Habilita Clustered SSO. Ver item sobre as system properties de SSO e JGROUPS.
   - `cluster-address`: Lista de servidores web apache com mod_cluster na porta 6666 que serão utilizados nesse profile. Essa receita não usa advertise para adição dinâmica com multicast. É utilizado apenas lista de proxy.
   - `webservice-ext-fqdn`: String. Obrigatório. Nome do servidor/serviço que será configurado no subsistema de webservices do profile.
   - `security-domains`: Hash. Opcional. Configuração de security domains do subsistema (legado) security.
@@ -409,7 +444,7 @@ Especificação de `server-groups`:
   - `permgen-size`: String.
   - `max-permgen-size`: String.
   - `enable-debug`: Boolean. Opcional. Default: false. Liga debug para servers deste grupo na porta `jboss.debug-base-port + socket-binding-port-offset`. Esse atributo no escopo de server group só é efetivo se `jboss.enable-debug` (atributo global) for false (valor default se não especificado).
-  - `jvm-options`: Array. Opcional. Default: ["-Dorg.jboss.resolver.warning=true", "-Dsun.rmi.dgc.server.gcInterval=3600000", "-Dsun.lang.ClassLoader.allowArraySyntax=true", "-Dfile.encoding=utf-8", "-Duser.language=pt", "-Duser.region=BR", "-Duser.country=BR", "-Djava.awt.headless=true", "Xss256K", "-Djava.security.egd=file:/dev/./urandom"]. Os valores default são combinados aos especificados aqui. Se deseja mudar o comportamento de alguma option default, deve especificá-la com valor desejado nesse atributo. 
+  - `jvm-options`: Array. Opcional. Default: ["-Dorg.jboss.resolver.warning=true", "-Dsun.rmi.dgc.server.gcInterval=3600000", "-Dsun.lang.ClassLoader.allowArraySyntax=true", "-Dfile.encoding=utf-8", "-Duser.language=pt", "-Duser.region=BR", "-Duser.country=BR", "-Djava.awt.headless=true", "Xss256K", "-Djava.security.egd=file:/dev/./urandom"]. Os valores default são combinados aos especificados aqui. Se deseja mudar o comportamento de alguma option default, deve especificá-la com valor desejado nesse atributo.
 
 
 Exemplo: 

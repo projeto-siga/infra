@@ -18,7 +18,7 @@ if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/secu
   /host=<%= node['hostname'] -%>/subsystem=elytron/security-domain=ldap-security-domain:add(realms=[{realm=ldap-realm,role-decoder=from-roles-attribute}],default-realm=ldap-realm,permission-mapper=default-permission-mapper)
 end-if
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:read-resource
-  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:add(path=<%= @truststore_base_dir -%>/ldap-truststore.jks,credential-reference={clear-text="<%= @truststore_secret -%>"},type=JKS)
+  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:add(path=<%= @ldap_truststore_path -%>,credential-reference={clear-text="<%= @truststore_secret -%>"},type=JKS)
 end-if
 try
   if (result == undefined) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=ldaps-truststore:read-alias(alias=ldapserver)

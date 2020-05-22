@@ -53,6 +53,7 @@ module InfraEAP
       jboss_srv_conf_path = f_install_service_conf_path(major_version)
       jboss_srv_conf_link_path = f_install_service_conf_ln_path(major_version)
       domain_dir = f_domain_dir()
+      vault_dir = f_vault_dir()
       
       if f_force_reinstall()
         ruby_block 'call_me_back_action:uninstall' do
@@ -81,11 +82,11 @@ module InfraEAP
             action :remove
           end
 
-          package 'java-1.7.0-openjdk'
+          package %w(java-1.6.0-openjdk java-1.7.0-openjdk)
         else
           package 'java-1.8.0-openjdk'
         end
-        
+
         eap_zip_file_name =  eap_zip_url.split('/')[-1]
         eap_zip_local_path = "/tmp/#{eap_zip_file_name}"
 
@@ -115,6 +116,7 @@ module InfraEAP
           group 'root'
           mode '0644'
           action :create
+          not_if "test -f #{eap_zip_local_path}"
         end
 
         execute "unzip -n #{eap_zip_local_path} -d #{EAP::SUB_HOME}"
@@ -137,14 +139,14 @@ module InfraEAP
           action :create
           not_if { ::File.exist?(f_log_dir()) }
         end
-
+        
         directory f_data_dir() do
           owner 'jboss'
           group 'root'
           mode '0750'
           action :create
           not_if { ::File.exist?(f_data_dir()) }
-        end        
+        end
 
         execute 'Acerta permissões do domain' do
           command "chown -R jboss #{f_domain_dir()}"
@@ -154,9 +156,12 @@ module InfraEAP
         #execute "chown -R root.jboss #{jboss_install_dir}"
       end
 
-      
-
-      
+      directory vault_dir do
+        owner 'jboss'
+        group 'root'
+        mode '0750'
+        action :create
+      end
 
       if !jboss_srv_conf_link_path.empty?
         v_idx_last_b = jboss_srv_conf_link_path.rindex('/')

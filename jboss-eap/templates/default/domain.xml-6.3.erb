@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 
-<domain name="<%= @domain_name -%>" xmlns="urn:jboss:domain:1.8">
+<domain name="<%= @domain_name -%>" xmlns="urn:jboss:domain:1.6">
     <extensions>
         <extension module="org.jboss.as.clustering.infinispan"/>
         <extension module="org.jboss.as.clustering.jgroups"/>
@@ -36,7 +36,6 @@
         <!-- IPv4 is not required, but setting this helps avoid unintended use of IPv6 -->
         <property name="java.net.preferIPv4Stack" value="true"/>
     </system-properties>
-
     <management>
         <access-control provider="rbac">
             <role-mapping>
@@ -88,10 +87,17 @@
             </role-mapping>
         </access-control>
     </management>
-
     <profiles>
     </profiles>
-
+    <!--
+      ~ 
+      ~          Named interfaces that can be referenced elsewhere in the configuration. The configuration
+      ~          for how to associate these logical names with an actual network interface can either
+      ~          be specified here or can be declared on a per-host basis in the equivalent element in host.xml.
+      ~ 
+      ~          These default configurations require the binding specification to be done in host.xml.
+      ~     
+      -->
     <interfaces>
         <interface name="management"/>
         <interface name="public"/>

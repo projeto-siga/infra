@@ -7,9 +7,9 @@
 # All rights reserved - Do Not Redistribute
 #
 # --------------------- Atencao ---------------------
+require 'json'
 module InfraEAP
   module ConfHelper
-
     def f_init_script(p_major_version=f_my_mj_version())
       v_init_script_rpath = f_default_conf(p_major_version).fetch(:init_script, 'bin/domain.sh')
       "#{f_install_home_dir(p_major_version)}/#{v_init_script_rpath}"
@@ -130,29 +130,87 @@ module InfraEAP
       v_desired_mod_cluster_cfg = {}
       
       def_cluster_port = f_default_cluster_port()
-      
-      if f_profile_version(p_one_profile_cfg) < 7.0
+
+      if f_profile_version(p_one_profile_cfg) < 6.3
         v_proxy_list = f_profile_cluster_address(p_one_profile_cfg).map { |one_address| "#{one_address}:#{def_cluster_port}" }.join(',')
         v_desired_mod_cluster_cfg = {
-          "configuration": {
-            "connector": "ajp",
-            "load-balancing-group": '${segsap.modcluster.lbgroup:' + p_profile_name +'Default}',
-            "advertise": "false",
-            "excluded-contexts": "ROOT, invoker,jbossws,juddi,console",
-            "proxy-list": "#{v_proxy_list}",
-          }
-        }
+                                      "configuration": {
+                                        "connector": "ajp",
+                                        "advertise": "false",
+                                        "balancer": '${jboss.modcluster.load-balancing-group:' + p_profile_name + '}',
+                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + p_profile_name +'Default}',
+                                        "excluded-contexts": "${jboss.modcluster.excluded-contexts:ROOT,invoker,jbossws,juddi,console}",
+                                        "worker-timeout": "${jboss.modcluster.worker-timeout:-1}",
+                                        "stop-context-timeout": "${jboss.modcluster.stop-context-timeout:10}",
+                                        "node-timeout": "${jboss.modcluster.node-timeout:-1}",
+                                        "socket-timeout":  "${jboss.modcluster.socket-timeout:20}",
+                                        "ping": "${jboss.modcluster.ping:10}",
+                                        "flush-wait": "${jboss.modcluster.flush-wait:-1}",
+                                        "smax": "${jboss.modcluster.smax:-1}",
+                                        "ttl": "${jboss.modcluster.ttl:-1}",
+                                        "flush-packets": "${jboss.modcluster.flush-packets:false}",
+                                        "auto-enable-contexts": "${jboss.modcluster.auto-enable-contexts:true}",
+                                        "max-attempts": "${jboss.modcluster.max-attempts:1}",
+                                        "sticky-session": "${jboss.modcluster.sticky-session:true}",
+                                        "sticky-session-force": "${jboss.modcluster.sticky-session-force:false}",
+                                        "sticky-session-remove": "${jboss.modcluster.sticky-session-remove:false}",
+                                        "proxy-list": "#{v_proxy_list}",
+                                      }
+                                    }
+      elsif f_profile_version(p_one_profile_cfg) < 7.0
+        v_proxy_list = f_profile_cluster_address(p_one_profile_cfg).map { |one_address| "#{one_address}:#{def_cluster_port}" }.join(',')
+        v_desired_mod_cluster_cfg = {
+                                      "configuration": {
+                                        "connector": "ajp",
+                                        "advertise": "false",
+                                        "balancer": '${jboss.modcluster.load-balancing-group:' + p_profile_name + '}',
+                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + p_profile_name +'Default}',
+                                        "excluded-contexts": "${jboss.modcluster.excluded-contexts:ROOT,invoker,jbossws,juddi,console}",
+                                        "worker-timeout": "${jboss.modcluster.worker-timeout:-1}",
+                                        "stop-context-timeout": "${jboss.modcluster.stop-context-timeout:10}",
+                                        "node-timeout": "${jboss.modcluster.node-timeout:-1}",
+                                        "socket-timeout":  "${jboss.modcluster.socket-timeout:20}",
+                                        "ping": "${jboss.modcluster.ping:10}",
+                                        "flush-wait": "${jboss.modcluster.flush-wait:-1}",
+                                        "smax": "${jboss.modcluster.smax:-1}",
+                                        "ttl": "${jboss.modcluster.ttl:-1}",
+                                        "flush-packets": "${jboss.modcluster.flush-packets:false}",
+                                        "auto-enable-contexts": "${jboss.modcluster.auto-enable-contexts:true}",
+                                        "max-attempts": "${jboss.modcluster.max-attempts:1}",
+                                        "sticky-session": "${jboss.modcluster.sticky-session:true}",
+                                        "sticky-session-force": "${jboss.modcluster.sticky-session-force:false}",
+                                        "sticky-session-remove": "${jboss.modcluster.sticky-session-remove:false}",
+                                        "session-draining-strategy": "${jboss.modcluster.session-draining-strategy:DEFAULT}",
+                                        "proxy-list": "#{v_proxy_list}",
+                                      }
+                                    }
       else
         v_cluster_name_list = f_desired_outbound_state(p_profile_name, p_one_profile_cfg).keys
         v_desired_mod_cluster_cfg = {
-            "default": {
-            "advertise": "false",
-            "excluded-contexts": "wildfly-services",
-            "connector": "ajp",
-            "load-balancing-group": '${segsap.modcluster.lbgroup:' + p_profile_name +'Default}',
-            "proxies": v_cluster_name_list,
-            }
-          }
+                                      "default": {
+                                        "connector": "ajp",
+                                        "advertise": "false",
+                                        "balancer": '${jboss.modcluster.load-balancing-group:' + p_profile_name + '}',
+                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + p_profile_name +'Default}',
+                                        "excluded-contexts": "${jboss.modcluster.excluded-contexts:wildfly-services}",
+                                        "worker-timeout": "${jboss.modcluster.worker-timeout:-1}",
+                                        "stop-context-timeout": "${jboss.modcluster.stop-context-timeout:10}",
+                                        "node-timeout": "${jboss.modcluster.node-timeout:-1}",
+                                        "socket-timeout":  "${jboss.modcluster.socket-timeout:20}",
+                                        "ping": "${jboss.modcluster.ping:10}",
+                                        "flush-wait": "${jboss.modcluster.flush-wait:-1}",
+                                        "smax": "${jboss.modcluster.smax:-1}",
+                                        "ttl": "${jboss.modcluster.ttl:-1}",
+                                        "flush-packets": "${jboss.modcluster.flush-packets:false}",
+                                        "auto-enable-contexts": "${jboss.modcluster.auto-enable-contexts:true}",
+                                        "max-attempts": "${jboss.modcluster.max-attempts:1}",
+                                        "sticky-session": "${jboss.modcluster.sticky-session:true}",
+                                        "sticky-session-force": "${jboss.modcluster.sticky-session-force:false}",
+                                        "sticky-session-remove": "${jboss.modcluster.sticky-session-remove:false}",
+                                        "session-draining-strategy": "${jboss.modcluster.session-draining-strategy:DEFAULT}",
+                                        "proxies": v_cluster_name_list,
+                                      }
+                                    }
       end
 
       v_desired_mod_cluster_cfg
@@ -234,15 +292,42 @@ module InfraEAP
       p_one_profile_cfg.fetch('data-sources', {})
     end
 
-      
-    def f_desired_state_datasource(p_ds_cfg, p_txt_secdomain_name_prefix)
-      v_ds_cfg = f_remove_keys(p_ds_cfg, ['password', 'user-name', 'security-domain-username', 'security-domain-password'])
-
+    def f_setup_vault_ds_passwords(p_ds_cfg)
       p_ds_cfg.each_pair do |key, value|
-        v_ds_cfg[key] = v_ds_cfg[key].merge({"security-domain": "#{p_txt_secdomain_name_prefix}#{key}"})
+        f_vault_add_item(key, 'password', f_ds_password(key, p_ds_cfg[key]))
+      end
+    end
+
+    def f_desired_state_datasource(p_ds_cfg, p_txt_secdomain_name_prefix = '')
+      if p_txt_secdomain_name_prefix.nil? || p_txt_secdomain_name_prefix.empty?
+        v_ds_cfg = f_remove_keys(p_ds_cfg,  ['password', 'security-domain-username', 'security-domain-password'])
+        p_ds_cfg.each_pair do |key, value|
+          v_ds_cfg[key] = v_ds_cfg[key].merge({"password": "${#{f_vault_add_item(key, 'password', f_ds_password(key, p_ds_cfg[key]))}}"})
+        end
+      else
+        v_ds_cfg = f_remove_keys(p_ds_cfg, ['password', 'user-name', 'security-domain-username', 'security-domain-password'])
+        p_ds_cfg.each_pair do |key, value|
+          v_ds_cfg[key] = v_ds_cfg[key].merge({"security-domain": "#{p_txt_secdomain_name_prefix}#{key}"})
+        end
       end
       
       v_ds_cfg
+    end
+
+    def f_desired_state_xa_datasource(p_xa_ds_cfg, p_txt_secdomain_name_prefix = '')
+      if p_txt_secdomain_name_prefix.nil? || p_txt_secdomain_name_prefix.empty?
+        v_xa_ds_cfg = f_remove_keys(p_xa_ds_cfg,  ['password', 'security-domain-username', 'security-domain-password', 'xa-datasource-properties'])
+        p_xa_ds_cfg.each_pair do |key, value|
+          v_xa_ds_cfg[key] = v_xa_ds_cfg[key].merge({"password": "${#{f_vault_add_item(key, 'password', f_ds_password(key, p_xa_ds_cfg[key]))}}"})
+        end
+      else
+        v_xa_ds_cfg = f_remove_keys(p_xa_ds_cfg, ['password', 'user-name', 'security-domain-username', 'security-domain-password', 'xa-datasource-properties'])
+        p_xa_ds_cfg.each_pair do |key, value|
+          v_xa_ds_cfg[key] = v_xa_ds_cfg[key].merge({"security-domain": "#{p_txt_secdomain_name_prefix}#{key}"})
+        end
+      end
+      
+      v_xa_ds_cfg
     end
 
     def f_profile_xa_datasources(p_one_profile_cfg)
@@ -346,6 +431,112 @@ module InfraEAP
       v_role_mapping = v_role_mapping.nil? ? f_default_role_map() : f_default_role_map().merge(f_expand_role_map(v_role_mapping))
 
       v_role_mapping.merge(c_mandatory_monitor_user){|key, oldval, newval| newval.merge(oldval){ |key2, oldval2, newval2| (oldval2+newval2).uniq }}
+    end
+
+    def f_ldap_server_address
+      ldap_server_url = f_ldap_server_url()
+      ldap_server_url[(ldap_server_url.rindex(/\//)) + 1 .. ldap_server_url.length].strip
+    end
+
+    def f_ldap_cert_path
+      "#{f_sys_ca_cert_dir()}/#{f_ldap_server_address()}.crt"
+    end
+
+    def f_ldap_truststore_path
+      "#{f_truststore_dir()}/ldap-truststore.jks"
+    end
+
+    def f_https_truststore_path
+       "#{f_truststore_dir()}/httpsmgmtkeystore.jks"
+    end
+
+    def f_vault_add_item(p_block_name, p_attr_name, p_attr_value)
+      f_execute_vault(p_block_name, p_attr_name, p_attr_value, false)
+    end
+
+    def f_init_vault_reqs
+      vault_secret = f_vault_secret()
+      vault_salt = f_vault_salt()
+      vault_path = f_vault_path()
+      vault_dir = f_vault_dir()
+      vault_alias = f_vault_alias()
+      vault_iter_count = f_vault_iter_count()
+
+      keytool_cmd = "sudo -u jboss /usr/bin/keytool -genseckey -alias #{vault_alias} -storetype jceks -keyalg AES -keysize 128 -storepass #{vault_secret}"
+      keytool_cmd = " #{keytool_cmd} -keypass #{vault_secret} -validity 7300 -keystore #{vault_path}"
+      execute 'create keystore to vault' do
+        command keytool_cmd
+        action :run
+        not_if { ::File.exist? vault_path }
+        sensitive true
+      end
+    end
+
+    def f_init_vault
+      f_execute_vault('vaultinit', 'password', f_vault_initpass(), true)
+    end
+
+    def f_execute_vault(p_block_name, p_attr_name, p_attr_value, p_init)
+      vault_cmd = "sudo -u jboss #{f_my_version() < 6.4 ? 'JAVA_OPTS="-Djboss.modules.system.pkgs=com.sun.crypto.provider" ' : ''}#{f_eap_dir()}/bin/vault.sh"
+      vault_cmd = "#{vault_cmd} --keystore #{f_vault_path()} --keystore-password '#{f_vault_secret()}' --alias #{f_vault_alias()}"
+      vault_cmd = "#{vault_cmd} --vault-block #{p_block_name} --attribute #{p_attr_name} --sec-attr '#{p_attr_value}'"
+      vault_cmd = "#{vault_cmd} --enc-dir #{f_vault_dir()} --iteration #{f_vault_iter_count()} --salt '#{f_vault_salt()}'"
+      if f_my_mj_version() > 6
+        vault_cmd = "#{vault_cmd} 2>&1 1>/dev/stdout  | sed -e '/\\/host=.*$\\|VAULT.*/ ! s/.*//g' | grep #{p_init ? 'host\=' : 'VAULT'}"
+      else
+        vault_cmd = "#{vault_cmd} 2>&1 1>/dev/stdout  | sed -e '/<vault.*\\|VAULT.*/ ! s/.*//g' | grep #{p_init ? '\<vault' : 'VAULT'}"
+      end
+
+      vault_cfg = response(vault_cmd)
+
+      if vault_cfg.nil? || vault_cfg.strip.empty?
+        raise "error during vault operation: block => #{p_block_name}, attribute => #{p_attr_name}, cmd => #{vault_cmd}"
+      elsif !p_init
+        vault_cfg = vault_cfg.strip 
+      elsif f_my_mj_version() > 6
+        vault_cfg = vault_cfg.strip.sub('the_host', node['hostname'])
+      else
+        vault_cfg = "#{vault_cfg}</vault>"
+      end
+
+      vault_cfg      
+    end
+
+    def f_init_ssl_cert_legacy64
+      var_cmd = "sudo -u jboss /usr/bin/keytool -genkeypair -alias #{node['hostname']} -storetype jks -keyalg RSA -keysize 2048 -keypass '#{f_truststore_secret()}'"
+      var_cmd = "#{var_cmd} -keystore #{f_https_truststore_path()} -storepass '#{f_truststore_secret()}'"
+      var_cmd = "#{var_cmd} -dname \"CN=#{node['fqdn']},OU=STI,O=TRF2,L=Rio de Janeiro,ST=RJ,C=BR\" -validity 7300 -v"
+
+      execute 'generate key pair https console' do
+        command var_cmd
+        action :run
+        not_if "test -f #{f_https_truststore_path()}"
+      end
+
+      var_export = "/usr/bin/keytool -exportcert -alias #{node['hostname']} -rfc -file #{f_my_cert_path()}"
+      var_export = "#{var_export} -keystore #{f_https_truststore_path()} -storepass '#{f_truststore_secret()}'"
+
+      execute "exrpotr my certificate #{f_my_cert_path()}" do
+        command var_export
+        action :run
+      end
+
+    end
+
+    def f_my_jgroups_hosts
+      jgroups_members = []
+
+      f_my_server_groups().each_pair do |_prf_name, srv_groups|
+        sys_props = srv_groups.map { |_grp_name, grp_cfg| f_system_properties(grp_cfg) }[0]
+        if sys_props.key?('jboss.cluster.tcp.initial_hosts')
+          init_hosts_txt = sys_props.fetch('jboss.cluster.tcp.initial_hosts')['value'].strip
+          jgroups_members = jgroups_members + init_hosts_txt.gsub('[','/32:')[0..-2].split('],')
+        end
+      end
+
+      log jgroups_members.to_s
+
+      jgroups_members
     end
   end
 end

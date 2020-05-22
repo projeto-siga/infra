@@ -1,21 +1,46 @@
-try
+if (outcome != success) of /extension=org.jboss.as.cmp:read-resource
 /extension=org.jboss.as.cmp:add()
+end-if
+if (outcome != success) of /extension=org.jboss.as.configadmin:read-resource
 /extension=org.jboss.as.configadmin:add()
+end-if
+if (outcome != success) of /extension=org.jboss.as.jacorb:read-resource
 /extension=org.jboss.as.jacorb:add()
+end-if
+if (outcome != success) of /extension=org.jboss.as.threads:read-resource
 /extension=org.jboss.as.threads:add()
+end-if
+if (outcome != success) of /extension=org.jboss.as.web:read-resource
 /extension=org.jboss.as.web:add()
-catch
-  echo IhJaTava
-end-try
-try
-/socket-binding-group=eap6-standard-sockets:add(default-interface=public)
-/socket-binding-group=eap6-standard-sockets/socket-binding=ajp:add(port=8009)
-/socket-binding-group=eap6-standard-sockets/socket-binding=http:add(port=8080)
-/socket-binding-group=eap6-standard-sockets/socket-binding=https:add(port=8443)
-/socket-binding-group=eap6-standard-sockets/socket-binding=remoting:add(port=4447)
-/socket-binding-group=eap6-standard-sockets/socket-binding=txn-recovery-environment:add(port=4712)
-/socket-binding-group=eap6-standard-sockets/socket-binding=txn-status-manager:add(port=4713)
-/socket-binding-group=eap6-standard-sockets/remote-destination-outbound-socket-binding=mail-smtp:add(host="localhost",port="25")
-catch
-  echo IhJaTava
-end-try
+end-if
+
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets:read-resource
+  /socket-binding-group=eap6-standard-sockets:add(default-interface=public)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=ajp:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=ajp:add(port=8009)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=http:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=http:add(port=8080)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=https:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=https:add(port=8443)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=remoting:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=remoting:add(port=4447)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=txn-recovery-environment:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=txn-recovery-environment:add(port=4712)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=txn-status-manager:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=txn-status-manager:add(port=4713)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=jgroups-tcp:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=jgroups-tcp:add(port=7600)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/socket-binding=jgroups-tcp-fd:read-resource
+  /socket-binding-group=eap6-standard-sockets/socket-binding=jgroups-tcp-fd:add(port=57600)
+end-if
+if (outcome != success) of /socket-binding-group=eap6-standard-sockets/remote-destination-outbound-socket-binding=mail-smtp:read-resource
+  /socket-binding-group=eap6-standard-sockets/remote-destination-outbound-socket-binding=mail-smtp:add(host="localhost",port="25")
+end-if

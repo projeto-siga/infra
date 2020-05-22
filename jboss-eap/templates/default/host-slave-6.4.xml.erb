@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 
 <host name="<%= node['hostname'] -%>" xmlns="urn:jboss:domain:1.7">
-
+    <%= @vault_init_xml %>
     <management>
         <security-realms>
             <security-realm name="ManagementRealm">
@@ -63,7 +63,7 @@
             <inet-address value="${jboss.bind.address.management:127.0.0.1}"/>
         </interface>
         <interface name="public">
-           <inet-address value="${jboss.bind.address:0.0.0.0}"/>
+           <inet-address value="${jboss.bind.address:<%= node['ipaddress'] -%>}"/>
         </interface>
         <interface name="unsecure">
             <!-- Used for IIOP sockets in the standard configuration.

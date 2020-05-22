@@ -24,7 +24,7 @@ end-if
 # REF: https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html/how_to_configure_server_security/securing_the_server_and_its_interfaces#elytron_one_way_ssl_mgmt
 #
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:read-resource
- /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:add(path=<%= @truststore_base_dir -%>/httpsmgmtkeystore.jks,credential-reference={clear-text=<%= @truststore_secret -%>},type=JKS)
+ /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:add(path=<%= @https_truststore_path -%>,credential-reference={clear-text=<%= @truststore_secret -%>},type=JKS)
 end-if
 if (result == undefined) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:read-alias(alias=<%= node['hostname'] -%>)
   /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:generate-key-pair(alias=<%= node['hostname'] -%>,algorithm=RSA,key-size=4096,validity=3650,credential-reference={clear-text=<%= @truststore_secret -%>},distinguished-name="CN=<%= node['fqdn'] -%>,DC=corp,DC=jfrj,DC=gov,DC=br")

@@ -38,11 +38,43 @@ module InfraEAP
     end
 
     def f_master_ipaddress
-      f_domain_cfg().fetch('master-address')
+      master_ip_address = f_domain_cfg().fetch('master-address', '')
+
+      if master_ip_address.nil? || master_ip_address.empty?
+        if !f_domain_cfg().key?('master-fqdn')
+          raise 'set jboss.master-address or jboss.master-fqdn'
+        else
+           master_ip_address = f_resolve_name(f_master_fqdn())
+        end
+      end
+
+      master_ip_address
     end
 
     def f_master_fqdn
-       f_domain_cfg().fetch('master-fqdn', response("dig +short -x #{f_master_ipaddress()}").strip[0..-2])
+      master_fqdn = f_domain_cfg().fetch('master-fqdn', '')
+
+      if master_fqdn.nil? || master_fqdn.empty?
+        if !f_domain_cfg().key?('master-address')
+          raise 'set jboss.master-address or jboss.master-fqdn'
+        else
+           master_fqdn = f_resolve_name(f_master_ipaddress(), true)
+           #response("dig +short -x #{f_master_ipaddress()}").strip[0..-2]
+        end
+      end
+
+      master_fqdn
+    end
+
+    def f_resolve_name(p_addr, p_reverse = false)
+      v_dig_cmd = "dig +short #{ p_reverse ? '-x ' : ' '}#{p_addr}"
+      v_addr = p_reverse ? response(v_dig_cmd).strip[0..-2] : response(v_dig_cmd).strip
+      
+      if v_addr.nil? || v_addr.empty?
+        raise "Unable to resolve address #{p_addr}"
+      end
+
+      v_addr
     end
 
     def f_domain_name
@@ -76,7 +108,7 @@ module InfraEAP
     def f_config_dir
       "#{f_domain_dir()}/configuration"
     end
-  
+
     def f_data_dir
       "#{f_domain_dir()}/data"
     end
@@ -173,6 +205,14 @@ module InfraEAP
 
     def f_credstore_dir
       "#{f_eap_dir()}/#{EAP::CREDSTORE_DEF_SBDIR}"
+    end
+
+    def f_vault_dir
+      "#{f_eap_dir()}/#{EAP::VAULT_DEF_SBDIR}"
+    end
+
+    def f_vault_path
+      "#{f_vault_dir}/domainvault.jceks"
     end
 
     def f_truststore_dir
@@ -443,8 +483,34 @@ module InfraEAP
       f_generic_dbitem_get_value(EAP::JB_DATABAG_JBOSSCLI, 'secret', 'iTmUsTb3CH4nged', false)
     end
 
+    def f_vault_secret
+      f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'secret', f_generic_dbitem_get_value(EAP::JB_DATABAG_TRUST, 'secret', 'iTmUsTb3CH4nged', false) , false)
+    end
+
+    def f_vault_salt
+      salt_value = f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'salt', '1smYS4lt', false)
+
+      if salt_value.length < 8 || salt_value.length > 8
+        raise 'salt deve ter exatamente 8 caracteres'
+      end
+
+      salt_value
+    end
+
+    def f_vault_iter_count
+      f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'itercount', 120, false)
+    end
+
+    def f_vault_initpass
+      f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'initpass', 'Init14lPa$$WoRd', false)
+    end
+
     def f_ldap_credstore_name()
       EAP::LDAP_CREDSTR_NAME
+    end
+
+    def f_vault_alias()
+      EAP::VAULT_ALIAS
     end
 
     def f_ldap_server_url
@@ -532,6 +598,10 @@ module InfraEAP
 
     def f_use_local_web_cache(p_one_profile_cfg)
       p_one_profile_cfg.fetch('use-local-web-cache', true)
+    end
+
+    def f_enable_sso(p_one_profile_cfg)
+      p_one_profile_cfg.fetch('enable-sso', false)
     end
 
     def f_is_remote_log

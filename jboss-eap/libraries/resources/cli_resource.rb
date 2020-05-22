@@ -43,7 +43,8 @@ module InfraEAP
           content desired_state.to_json
         end
 
-        converge_args = (eap_version < 7) ? "#{node['ipaddress']}:#{9990 + port_offset}" : "https://#{node['fqdn']}:#{9993 + port_offset} --auth '#{username}:#{userpw}' --cert #{cert_path} --eap-version #{eap_version}"
+        #converge_args = (eap_version < 7) ? "#{node['ipaddress']}:#{9990 + port_offset}" : "https://#{node['fqdn']}:#{9993 + port_offset} --auth '#{username}:#{userpw}' --cert #{cert_path} --eap-version #{eap_version}"
+        converge_args = "https://#{node['fqdn']}:#{9993 + port_offset} --auth '#{username}:#{userpw}' --cert #{cert_path} --eap-version #{eap_version}"
         execute "diff #{name} #{profile_name}" do
           command "python /util/jbosscli-converge/converge.py -c #{converge_args} --address '#{resource_address}' -t '#{resource_type}' -d #{desired_state_path} -o #{cli_script_path}"
         end

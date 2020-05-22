@@ -1,7 +1,8 @@
-<% if @jboss_version  >= 7.0 %>
+
 /profile=<%= @profile_name -%>/subsystem=webservices:write-attribute(name=modify-wsdl-address,value=true)
 /profile=<%= @profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-host,value="<%= @webservice_fqdn -%>")
 /profile=<%= @profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-port,value="80")
 /profile=<%= @profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-secure-port,value="443")
+<% if @jboss_version  >= 7.0 %>
 /profile=<%= @profile_name -%>/subsystem=webservices:write-attribute(name=wsdl-uri-scheme,value="https")
 <% end %>

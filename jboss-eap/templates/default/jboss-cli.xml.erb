@@ -3,12 +3,19 @@
    host = @is_master ? node['fqdn'] : 'localhost'
    port = @major_version > 6 ? 9990 : 9999
    port = @major_version > 6 && @is_master ? '9993' : port
+   xmlns_cli_ver = if @major_version > 6
+                    '3.3'
+                  elsif @version < 6.3
+                    '1.2'
+                  else
+                    '1.3'
+                  end
  %>
 
 <!--
    WildFly Command-line Interface configuration.
 -->
-<jboss-cli xmlns="urn:jboss:cli:<%= @major_version > 6 ? '3.3' : '1.3' -%>">
+<jboss-cli xmlns="urn:jboss:cli:<%= xmlns_cli_ver -%>">
 
     <% if @major_version > 6 %><default-protocol use-legacy-override="true"><%= protocol -%></default-protocol><% end %>
     <!-- The default controller to connect to when 'connect' command is executed w/o arguments -->

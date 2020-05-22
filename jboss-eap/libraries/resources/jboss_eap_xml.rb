@@ -17,7 +17,7 @@ module InfraEAP
 
     property :name, String
     property :jboss_eap_dir, String
-    property :major_version, Integer
+    property :version, Float
     property :domain_version, Float
     property :domain_name, String
     property :master_ipaddress, String
@@ -62,17 +62,44 @@ module InfraEAP
     
     action :config_master do
       configuration_dir = new_resource.configuration_dir
-      host_config_file = new_resource.configuration_dir
-      major_version = new_resource.major_version
+      host_config_file = new_resource.host_config_file
+      version = new_resource.version
+      truststore_secret = f_truststore_secret()
+      ldap_cert_path = f_ldap_cert_path()
+      ldap_truststore_path = f_ldap_truststore_path()
+      ldap_credstore_name = f_ldap_credstore_name()
+      ldap_credstore_pw = f_ldap_credstore_pw()
+      ldap_filter_base_dn = f_ldap_filter_base_dn()
+      ldap_search_base_dn = f_ldap_search_base_dn()
+      ldap_principal = f_ldap_principal()
+      ldap_principal_pw = f_ldap_principal_pw()
+      ldap_principal_acc = f_ldap_principal_acc()
+      vault_ldap_cfg = f_vault_add_item(ldap_principal_acc, 'password', ldap_principal_pw)
+      vault_init_xml = f_init_vault()
+      ldap_server_url = f_ldap_server_url()
+      https_truststore_path = f_https_truststore_path()
+
+      f_init_ssl_cert_legacy64()
       
       host_config_path = "#{configuration_dir}/#{host_config_file}"
       template host_config_path do
-        source "host-master-#{major_version}.xml.erb"
+        source "host-master-#{version}.xml.erb"
         owner 'jboss'
         group 'root'
-        mode '0755'
+        mode '0640'
         action :create
-        not_if { File.exist(host_config_path) }
+        variables(
+          vault_init_xml: vault_init_xml,
+          vault_ldap_cfg: vault_ldap_cfg,
+          ldap_cert_path: ldap_cert_path,
+          ldap_server_url: ldap_server_url,
+          ldap_principal: ldap_principal,
+          ldap_search_base_dn: ldap_search_base_dn,
+          ldap_truststore_path: ldap_truststore_path,
+          truststore_secret: truststore_secret,
+          https_truststore_path: https_truststore_path
+        )
+        not_if "test -f #{host_config_path}"
       end
 
     end
@@ -82,18 +109,23 @@ module InfraEAP
       configuration_dir = new_resource.configuration_dir
       domain_config_file = new_resource.domain_config_file
       domain_version = new_resource.domain_version
+      domain_name = new_resource.domain_name
+      jboss_user_roles = f_jboss_user_roles()
+      jboss_ldap_role_mappings = f_jboss_ldap_role_mappings()
 
       domain_config_path = "#{configuration_dir}/#{domain_config_file}"
       template domain_config_path do
-        source "domain-#{domain_version}.xml.erb"
+        source "domain.xml-#{domain_version}.erb"
         owner 'jboss'
         group 'root'
         mode '0755'
         action :create
         variables(
-          domain_name: domain_name
+          domain_name: domain_name,
+          jboss_user_roles: jboss_user_roles, 
+          jboss_ldap_role_mappings: jboss_ldap_role_mappings
         )
-        not_if { File.exist(domain_config_path) }        
+        not_if "test -f #{domain_config_path}"
       end
 
     end
@@ -106,15 +138,15 @@ module InfraEAP
       domain_config_file = new_resource.domain_config_file
       configuration_dir = new_resource.configuration_dir
       master_cert_path = new_resource.master_cert_path
-      
+      vault_init_xml = f_init_vault()
       slave_secret_b64 = new_resource.slave_secret_b64
       slave_secret = new_resource.slave_secret
-      major_version = new_resource.major_version
+      version = new_resource.version
 
       host_config_path = "#{configuration_dir}/#{host_config_file}"
 
       template host_config_path do
-        source "host-slave-#{major_version}.xml.erb"
+        source "host-slave-#{version}.xml.erb"
         owner 'jboss'
         group 'root'
         mode '0640'
@@ -123,6 +155,7 @@ module InfraEAP
           secret_b64: slave_secret_b64,
           master_ipaddress: master_ipaddress,
           master_port: 9999,
+          vault_init_xml: vault_init_xml
         )
         not_if "test -f #{host_config_path}"
       end
@@ -130,6 +163,7 @@ module InfraEAP
 
     action_class do
       include InfraEAP::Helper
+      include InfraEAP::ConfHelper
     end
   end
 end
