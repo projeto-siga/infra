@@ -182,6 +182,10 @@ module InfraEAP
     def f_log_dir
       "#{f_domain_dir()}/log"
     end
+
+    def f_gc_log_dir
+      "#{f_log_dir()}/gc"
+    end
     
     def f_sys_log_base_dir
       EAP::LOG_BASE_DIR
@@ -273,18 +277,18 @@ module InfraEAP
 
     def f_ext_module_zip_url
        v_eap_zip_url = if am_i_master() || !am_i_legacy()
-                        f_domain_cfg().fetch('ext-module-zip-url')
+                        f_domain_cfg().fetch('ext-module-zip-url', '')
                       else
-                        f_legacy_slaves().fetch(node['hostname']).fetch('ext-module-zip-url')
+                        f_legacy_slaves().fetch(node['hostname']).fetch('ext-module-zip-url', '')
                       end
       v_eap_zip_url
     end
 
     def f_ext_module_pulp_manifest
       v_eap_manifest_url = if am_i_master() || !am_i_legacy()
-                            f_domain_cfg().fetch('ext-module-pulp-mafifest-url')
+                            f_domain_cfg().fetch('ext-module-pulp-mafifest-url', '')
                           else
-                            f_legacy_slaves().fetch(node['hostname']).fetch('ext-module-pulp-mafifest-url')
+                            f_legacy_slaves().fetch(node['hostname']).fetch('ext-module-pulp-mafifest-url', '')
                           end
       v_eap_manifest_url
     end
@@ -308,6 +312,10 @@ module InfraEAP
 
     def f_util_soft_install_cfg
       f_domain_cfg().fetch('util-soft-install-cfg', EAP::DEFAULT_UTIL_SOFT_CFG)
+    end
+
+    def f_add_packages(p_util_soft_repo_cfg)
+      p_util_soft_repo_cfg.fetch('add-packages', [])
     end
 
     def f_util_soft_base_dir(p_util_soft_repo_cfg)

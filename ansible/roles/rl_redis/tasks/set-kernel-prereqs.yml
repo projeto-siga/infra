@@ -1,0 +1,108 @@
+
+- name: Get THP Settings on grub
+  shell: 'grub2-editenv - list | grep kernelopts'
+  register: grub_output
+  tags:
+    - thp_only
+
+- name: Debug THP settings
+  debug:
+    var: grub_output
+  tags:
+    - never
+    - debug
+
+- name: Fact to new THP settings
+  set_fact:
+    thp_setting: "{{ grub_output.stdout | trim }} transparent_hugepage=never"
+  when: grub_output.stdout is defined and 'transparent_hugepage=never' not in grub_output.stdout
+  tags:
+    - thp_only
+
+- name: Debug new THP settings before change
+  debug:
+    var: thp_setting
+  tags:
+    - never
+    - debug
+
+- name: Set new THP settings to grub
+  shell: "grub2-editenv - set \"{{ thp_setting }}\""
+  when: not ansible_check_mode and thp_setting is defined
+  tags:
+    - thp_only
+
+- name: Get New THP Settings from grub after change
+  shell: 'grub2-editenv - list | grep kernelopts'
+  register: grub_output
+  when: thp_setting is defined
+  tags:
+    - thp_only
+
+- name: Debug New THP settings after change
+  debug:
+    var: grub_output.stdout
+  when: thp_setting is defined
+  tags:
+    - never
+    - debug
+
+- name: set overcommit_memory to 1
+  sysctl:
+    name: vm.overcommit_memory
+    value: '1'
+    sysctl_set: yes
+
+- name: set net.core.somaxconn to 511
+  sysctl:
+    name: net.core.somaxconn
+    value: '511'
+    sysctl_set: yes
+
+- name: Reboot to THP change
+  reboot:
+  when: thp_setting is defined and can_reboot
+  tags:
+    - thp_only
+
+- name: Get THP Status
+  shell: cat /sys/kernel/mm/transparent_hugepage/enabled
+  register: thp_status
+  tags:
+    - thp_only
+
+- name: Assert THP disabled
+  assert:
+    that: "{{ ' [never]' in thp_status.stdout or not can_reboot }}"
+    fail_msg: "Por algum motivo entendi que não está desabilitada THP. Verifique."
+    success_msg: "{{ 'OK. THP parece desabilitada!' if ' [never]' in thp_status.stdout else 'Reboot pendente' }}"
+  tags:
+    - thp_only
+
+- name: Get AnonHugePages Info
+  shell: 'grep AnonHugePages: /proc/meminfo'
+  register: thp_status
+  tags:
+    - thp_only
+
+- name: Assert AnonHugePages Info is 0 kB
+  assert:
+    that: "{{ ' 0 kB' in thp_status.stdout or not can_reboot }}"
+    fail_msg: "Por algum motivo entendi que não está desabilitada THP. Verifique."
+    success_msg: "{{ 'OK. THP parece desabilitada!' if ' 0 kB' in thp_status.stdout else 'Reboot pendente' }}"
+  tags:
+    - thp_only
+
+- name: Get Nr AnonHugePages Stats
+  shell: 'grep nr_anon_transparent_hugepages /proc/vmstat'
+  register: thp_status
+  tags:
+    - thp_only
+
+- name: Assert Nr AnonHugePages Stats is 0
+  assert:
+    that: "{{ ' 0' in thp_status.stdout or not can_reboot }}"
+    fail_msg: "Por algum motivo entendi que não está desabilitada THP. Verifique."
+    success_msg: "{{ 'OK. THP parece desabilitada!' if ' 0' in thp_status.stdout else 'Reboot pendente' }}"
+    tags:
+    - thp_only

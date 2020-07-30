@@ -1,0 +1,4 @@
+---
+# defaults file for rl_redis
+can_reboot: yes
+redis_conf:

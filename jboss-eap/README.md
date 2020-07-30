@@ -92,7 +92,6 @@ Como criar databag?
 - `jboss.modcluster.session-draining-strategy`: Opcional. Default "DEFAULT". Ignorado em profiles para versões < 6.3
 
 #### JGroups System Properties (ver configuração de profile: `use-local-hibernate-cache`, `use-local-server-cache`, `use-local-ejb-cache` e `use-local-web-cache`)
-- Testado no EAP 6.3 por enquanto
 - O subsistema jgourps sempre será configurado com TCPPING (sem UDP). Essas system-properties devem ser configuradas em `server-groups`.`system-properties`
   - `jboss.cluster.tcp.initial_hosts`: Obrigatório se qualquer um dos 4  parâmetros for true. (formato: "ip_slave[porta],ip_slave[porta]"). No EAP 7, deve ser o IP da interface private.
   - `jboss.cluster.tcp.num_initial_members`: Obrigatório se qualquer um dos 4 parâmetros for true. Não foi usado na config do EAP 7.2 (deprecated).
@@ -100,8 +99,7 @@ Como criar databag?
   - `jboss.cluster.tcp.timeout`: Opcional. Default 3000
 
 #### SSO System Properties (ver configuração de profile: `enable-sso`)
-- Testado no EAP 6.3 por enquanto
-- Configurando Web Subsystem com Clustered SSO (cache container=web, cache-name=sso). Essas system-properties devem ser configuradas em `server-groups`.`system-properties`
+Configurando Web Subsystem com Clustered SSO (cache container=web, cache-name=sso). Essas system-properties devem ser configuradas em `server-groups`.`system-properties`
   - `jboss.web.cluster.sso.reauthenticate`: Opcional. Default: true
   - `jboss.web.cluster.sso.domain`: Opcional. Default: `webservice-ext-fqdn`
 
@@ -142,6 +140,7 @@ Configura-se o domínio com um Hash chamada `jboss`.
 - `reinstall`: Boolean. Opcional. Default: false. Faz uninstall seguido de install a cada execução da receita.
 - `debug-base-port`: Integer. Opcional. Default: 8087
 - `enable-debug`: Boolean. Opcional. Default: false. Liga debug para todos os servers na porta `jboss.debug-base-port + jboss.profiles.<profile_name>.server-groups.<srv_grp_name>.socket-binding-port-offset`
+- `enable-gclog`: Boolean. Opcional. Default: false. Liga options da jvm para fazer log do GC para /var/log/jboss/gc/<server-group-name>.log
 - `master-address`: String. Obrigatório. IP do servidor (com o qualificador do domínio) que terá o papel de domain controller (master host). 
 - `master-fqdn`: String. Opcional. Nome do servidor (com o qualificador do domínio) que terá o papel de domain controller (master host). Em ambientes com DNS server, se não especificado é descoberto automaticamente.
 - `slave-hosts`: List. Identificação do nomes dos slave hosts (sem o qualicador do domínio) que compõem o domínio junto com o master.
@@ -444,6 +443,7 @@ Especificação de `server-groups`:
   - `permgen-size`: String.
   - `max-permgen-size`: String.
   - `enable-debug`: Boolean. Opcional. Default: false. Liga debug para servers deste grupo na porta `jboss.debug-base-port + socket-binding-port-offset`. Esse atributo no escopo de server group só é efetivo se `jboss.enable-debug` (atributo global) for false (valor default se não especificado).
+  - `enable-gclog`: Boolean. Opcional. Default: false. Liga options da jvm para fazer log do GC para /var/log/jboss/gc/<server-group-name>.log
   - `jvm-options`: Array. Opcional. Default: ["-Dorg.jboss.resolver.warning=true", "-Dsun.rmi.dgc.server.gcInterval=3600000", "-Dsun.lang.ClassLoader.allowArraySyntax=true", "-Dfile.encoding=utf-8", "-Duser.language=pt", "-Duser.region=BR", "-Duser.country=BR", "-Djava.awt.headless=true", "Xss256K", "-Djava.security.egd=file:/dev/./urandom"]. Os valores default são combinados aos especificados aqui. Se deseja mudar o comportamento de alguma option default, deve especificá-la com valor desejado nesse atributo.
 
 

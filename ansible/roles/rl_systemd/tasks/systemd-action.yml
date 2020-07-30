@@ -1,0 +1,47 @@
+---
+# tasks file for rl_systemd
+
+- name: Debug systemd item
+  debug:
+    var: systemd_item
+  tags:
+    - debug
+    - never
+
+- name: Execute systemd action
+  systemd:
+    no_block: "{{ systemd_item.no_block | default(omit) }}"
+    force: "{{ systemd_item.force | default(omit) }}"
+    name: "{{ systemd_item.name | default(omit) if systemd_item.daemon_reload is defined or systemd_item.daemon_reexec is defined else systemd_item.name }}"
+    enabled: "{{ systemd_item.enabled | default(omit) if systemd_item.daemon_reload is defined or systemd_item.daemon_reexec is defined else systemd_item.enabled | default(true) | bool }}"
+    daemon_reload: "{{ systemd_item.daemon_reload | default(omit) }}"
+    state: "{{ systemd_item.state | default(omit)  }}"
+    masked: "{{ systemd_item.masked | default(omit) if systemd_item.daemon_reload is defined or systemd_item.daemon_reexec is defined else systemd_item.masked | default(false) | bool }}"
+    scope: "{{ systemd_item.scope | default(omit) }}"
+    user: "{{ systemd_item.user | default(omit) }}"
+  register: systemd_status
+
+- name: Assert systemd_status.status defined
+  assert:
+    that: systemd_status.status is defined
+    fail_msg: "systemd_status.status nao definido"
+
+- name: Debug systemd_status
+  debug:
+    var: systemd_status
+  tags:
+    - debug
+    - never
+
+- name: Daemon-reload if needed
+  systemd:
+    no_block: no
+    force: "{{ systemd_item.force | default(omit) }}"
+    name: "{{ systemd_item.name | default(omit) if systemd_item.daemon_reload is defined or systemd_item.daemon_reexec is defined else systemd_item.name }}"
+    enabled: "{{ systemd_item.enabled | default(omit) if systemd_item.daemon_reload is defined or systemd_item.daemon_reexec is defined else systemd_item.enabled | default(true) | bool }}"
+    daemon_reload: yes
+    state: "{{ systemd_item.state | default(omit)  }}"
+    masked: "{{ systemd_item.masked | default(omit) if systemd_item.daemon_reload is defined or systemd_item.daemon_reexec is defined else systemd_item.masked | default(false) | bool }}"
+    scope: "{{ systemd_item.scope | default(omit) }}"
+    user: "{{ systemd_item.user | default(omit) }}"
+  when: systemd_status.status.NeedDaemonReload | bool

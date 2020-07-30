@@ -1,0 +1,13 @@
+---
+- hosts: localhost
+  remote_user: root
+  roles:
+    - rl_packages
+  vars:
+    var_packages_conf:
+      0:
+        name: python-pbr
+        state: present
+      1:
+        name: openjdk-8-jre
+        state: absent

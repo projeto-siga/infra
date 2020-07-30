@@ -1,0 +1,17 @@
+---
+
+- name: Enable/Start Service Redis
+  import_role:
+    name: rl_systemd
+  vars:
+    systemd_conf:
+      -
+        name: redis
+        enabled: yes
+        masked: no
+        state: started
+      -
+        name: redis-sentinel
+        enabled: "{{ redis_conf.sentinel_enabled }}"
+        masked: "{{ not redis_conf.sentinel_enabled }}"
+        state: "{{ 'started' if redis_conf.sentinel_enabled else 'stopped' }}"        

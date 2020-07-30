@@ -1,0 +1,9 @@
+---
+# tasks file for rl_systemd
+- name: Execute systemd action
+  include_tasks:
+    file: systemd-action.yml
+  loop: "{{ systemd_conf }}"
+  loop_control:
+    loop_var: systemd_item
+  

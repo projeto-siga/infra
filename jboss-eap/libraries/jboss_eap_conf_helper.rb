@@ -130,6 +130,10 @@ module InfraEAP
       v_desired_mod_cluster_cfg = {}
       
       def_cluster_port = f_default_cluster_port()
+      v_default_lb_group_name = "#{p_profile_name}Default"
+      v_default_lb_group_name = v_default_lb_group_name.length > 20 ? v_default_lb_group_name[0..19] : v_default_lb_group_name
+      v_default_balancer_name = "#{p_profile_name}Default"
+      v_default_balancer_name = v_default_balancer_name.length > 40 ? v_default_balancer_name[0..39] : v_default_balancer_name
 
       if f_profile_version(p_one_profile_cfg) < 6.3
         v_proxy_list = f_profile_cluster_address(p_one_profile_cfg).map { |one_address| "#{one_address}:#{def_cluster_port}" }.join(',')
@@ -137,8 +141,8 @@ module InfraEAP
                                       "configuration": {
                                         "connector": "ajp",
                                         "advertise": "false",
-                                        "balancer": '${jboss.modcluster.load-balancing-group:' + p_profile_name + '}',
-                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + p_profile_name +'Default}',
+                                        "balancer": '${jboss.modcluster.balancer:' + v_default_balancer_name + '}',
+                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + v_default_lb_group_name + '}',
                                         "excluded-contexts": "${jboss.modcluster.excluded-contexts:ROOT,invoker,jbossws,juddi,console}",
                                         "worker-timeout": "${jboss.modcluster.worker-timeout:-1}",
                                         "stop-context-timeout": "${jboss.modcluster.stop-context-timeout:10}",
@@ -163,8 +167,8 @@ module InfraEAP
                                       "configuration": {
                                         "connector": "ajp",
                                         "advertise": "false",
-                                        "balancer": '${jboss.modcluster.load-balancing-group:' + p_profile_name + '}',
-                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + p_profile_name +'Default}',
+                                        "balancer": '${jboss.modcluster.balancer:' + v_default_balancer_name + '}',
+                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + v_default_lb_group_name + '}',
                                         "excluded-contexts": "${jboss.modcluster.excluded-contexts:ROOT,invoker,jbossws,juddi,console}",
                                         "worker-timeout": "${jboss.modcluster.worker-timeout:-1}",
                                         "stop-context-timeout": "${jboss.modcluster.stop-context-timeout:10}",
@@ -190,8 +194,8 @@ module InfraEAP
                                       "default": {
                                         "connector": "ajp",
                                         "advertise": "false",
-                                        "balancer": '${jboss.modcluster.load-balancing-group:' + p_profile_name + '}',
-                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + p_profile_name +'Default}',
+                                        "balancer": '${jboss.modcluster.balancer:' + v_default_balancer_name + '}',
+                                        "load-balancing-group": '${jboss.modcluster.load-balancing-group:' + v_default_lb_group_name + '}',
                                         "excluded-contexts": "${jboss.modcluster.excluded-contexts:wildfly-services}",
                                         "worker-timeout": "${jboss.modcluster.worker-timeout:-1}",
                                         "stop-context-timeout": "${jboss.modcluster.stop-context-timeout:10}",
@@ -216,7 +220,7 @@ module InfraEAP
       v_desired_mod_cluster_cfg
     end
 
-    def f_srv_grp_jvm_options(p_one_srv_grp_cfg)
+    def f_srv_grp_jvm_options(p_one_srv_grp_name,p_one_srv_grp_cfg)
       init_mem_cfg_name = "-Xss"
       init_mem_cfg = "#{init_mem_cfg_name}256K"
       init_jvm_options = [\
@@ -231,6 +235,15 @@ module InfraEAP
                       "#{init_mem_cfg}",\
                       "-Djava.security.egd=file:/dev/./urandom"\
                     ]
+      if f_enable_srv_group_gclog(p_one_srv_grp_cfg)
+        init_jvm_options = init_jvm_options + [\
+                                                "-verbose:gc",\
+                                                "-Xloggc:#{f_gc_log_dir()}/#{p_one_srv_grp_name}.log",\
+                                                "-XX:+PrintGCDetails",\
+                                                "-XX:+PrintGCDateStamps",\
+                                                "-XX:+PrintGCApplicationStoppedTime",\
+                                              ]
+      end
     
     v_jvm_options = p_one_srv_grp_cfg.fetch('jvm-options',[])
     v_desired_jvm_options = []
@@ -263,6 +276,10 @@ module InfraEAP
     f_domain_cfg.fetch('debug-base-port', 8087).to_i
   end
 
+  def f_enable_srv_group_gclog(p_one_srv_grp_cfg)
+    f_domain_cfg().fetch('enable-gclog', false) || p_one_srv_grp_cfg.fetch('enable-gclog', false)
+  end
+
   def f_srv_group_debug_port(p_one_srv_grp_cfg)
     f_base_debug_port() + f_srv_port_offset(p_one_srv_grp_cfg).to_i
   end
@@ -278,7 +295,7 @@ module InfraEAP
   def f_desired_jvm(p_one_srv_grp_name, p_one_srv_grp_cfg)
     v_jvm_desired_state = {}
     v_jvm_desired_state[p_one_srv_grp_name] = p_one_srv_grp_cfg.reject{ |k,v| !['heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size'].include? k }
-    v_jvm_desired_state[p_one_srv_grp_name]['jvm-options'] = f_srv_grp_jvm_options(p_one_srv_grp_cfg)
+    v_jvm_desired_state[p_one_srv_grp_name]['jvm-options'] = f_srv_grp_jvm_options(p_one_srv_grp_name,p_one_srv_grp_cfg)
 
     v_jvm_desired_state
   end
@@ -373,7 +390,9 @@ module InfraEAP
       f_ds_item_value(p_ds_name, p_one_ds_cfg, 'password')
     end
 
+    #Será removido, ver f_profile_log_handler
     def f_profile_syslog_handler(p_profile_name, p_one_profile_cfg)
+    
      default_syslog_handler =  if f_is_remote_log() 
                                   {
                                     'auto_remote_log': {
@@ -383,13 +402,40 @@ module InfraEAP
                                       'port': f_logserver_port(),
                                       'level': 'INFO',
                                       'hostname': '${jboss.host.name}-${jboss.server.name}',
-                                    }
-                                }
+                                    }                             
+                                  }
                               else
                                {}
                               end
 
       p_one_profile_cfg.fetch('syslog-handlers', default_syslog_handler)
+    end
+
+    def f_profile_log_handler(p_profile_name, p_one_profile_cfg)
+     default_custom_handler =  if f_is_remote_log() 
+                                  {
+                                    'custom-handler' => {
+                                      'auto_remote_log' => {
+                                        'class' => 'org.jboss.logmanager.handlers.SyslogHandler',
+                                        'module' => 'org.jboss.logmanager',
+                                        'formatter' => '"%d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%E"',
+                                        'level' => 'INFO',
+                                        'properties' => {
+                                          'serverHostname' =>  f_logserver_addr(),
+                                          'port' => f_logserver_port(),
+                                          'hostname' => '${jboss.host.name}-${jboss.server.name}',
+                                          'appName' => "app_jboss_#{p_profile_name}",
+                                          'facility' => 'LOCAL_USE_4',
+                                          'syslogType' => 'RFC5424'
+                                        }                                      
+                                      }
+                                    }
+                                  }
+                              else
+                               {}
+                              end
+
+      p_one_profile_cfg.fetch('log-handler', default_custom_handler)
     end
 
     def f_my_tx_id_suffix

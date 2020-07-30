@@ -1,0 +1,9 @@
+---
+# tasks file for rl_packages
+
+- name: Install Packages
+  package:
+      state: "{{ item.state | default('present') }}"
+      name: "{{ item.name }}"
+      use: "{{ item.use | default(omit) }}"
+  loop: "{{ packages_conf }}"

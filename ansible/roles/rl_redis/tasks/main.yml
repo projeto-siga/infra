@@ -1,0 +1,44 @@
+---
+# tasks file for rl_redis
+- name: Merge Behavior
+  set_fact:
+    gluster_conf: "{{ default_redis_conf | combine(redis_conf, recursive=True) if redis_conf is defined and redis_conf is not none else default_redis_conf }}"
+  tags:
+    - always
+
+- name: debug cfg
+  debug:
+    var: redis_conf # not required. A variable name to debug.  Mutually exclusive with the 'msg' option.
+  tags:
+    - never
+    - debug
+
+- name: Config Kernel Prereqs
+  import_tasks: set-kernel-prereqs.yml
+  tags:
+    - kernel_prereqs
+    - config
+
+- name: Install Redis Packages
+  import_tasks: install-packages.yml
+  tags:
+    - always
+    - install_only
+    - config
+
+- name: Config Redis Files
+  import_tasks: config-redis.yml
+  tags:
+    - config
+
+- name: Enable Redis Services
+  import_tasks: enable-services.yml
+  tags:
+    - config
+    - service_only
+
+- name: Config Firewall to Redis Services
+  import_tasks: config-firewalld.yml
+  tags:
+    - config
+    - firewall_only

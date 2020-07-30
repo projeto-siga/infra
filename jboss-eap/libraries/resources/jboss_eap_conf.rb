@@ -188,6 +188,7 @@ module InfraEAP
       end
 
       profile_idx = 0
+      profile_host_exclude = {}
       profiles_cfg.each_pair do |profile_name, one_profile_cfg|
         profile_version = f_profile_version(one_profile_cfg)
         log "========================================================================="
@@ -280,7 +281,10 @@ module InfraEAP
           v_legacy_server_groups = f_legacy_server_groups(one_profile_cfg)
           if !v_legacy_server_groups.nil? && v_legacy_server_groups.any?
             v_profile_version_str = profile_version.to_s.eql?('6.4') ? "#{profile_version.to_s.gsub('.','')}z" : profile_version.to_s.gsub('.','')
-            v_host_exclude_command = "/host-exclude=EAP#{v_profile_version_str}:write-attribute(name=active-server-groups,value=#{v_legacy_server_groups})"
+            legcay_complete_list = profile_host_exclude.fetch(v_profile_version_str, []) + v_legacy_server_groups
+            profile_host_exclude = profile_host_exclude.merge({ "#{v_profile_version_str}" => legcay_complete_list.uniq })
+            log profile_host_exclude.to_s
+            v_host_exclude_command = "/host-exclude=EAP#{v_profile_version_str}:write-attribute(name=active-server-groups,value=#{legcay_complete_list})"
             exec_cli_resource v_host_exclude_command do
               live_stream true
               run_offline major_version > 6 && !f_is_service_active(service_name)
@@ -859,7 +863,7 @@ module InfraEAP
           )
         end
 
-        v_srv_grps_desired_state = f_remove_keys(v_server_groups, ['heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size', 'system-properties','slave-hosts', 'enable-debug', 'jvm-options'])
+        v_srv_grps_desired_state = f_remove_keys(v_server_groups, ['enable-gclog','heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size', 'system-properties','slave-hosts', 'enable-debug', 'jvm-options'])
 
         cli_resource 'server-groups' do
           profile_name profile_name
@@ -974,24 +978,27 @@ module InfraEAP
           end
         end
 
-        v_syslog_handlers_ds_state = f_profile_syslog_handler(profile_name, one_profile_cfg)
-        cli_resource 'syslog-handlers' do
-          profile_name profile_name
-          desired_state v_syslog_handlers_ds_state
-          resource_address "/profile=#{profile_name}/subsystem=logging"
-          resource_type 'syslog-handler'
-          eap_version version
-          cert_path cert_path
-          username ldap_jboss_acc
-          userpw ldap_jboss_pw
-        end
+        #v_syslog_handlers_ds_state = f_profile_syslog_handler(profile_name, one_profile_cfg)
+        v_syslog_handlers_ds_state = f_profile_log_handler(profile_name, one_profile_cfg)
+        v_syslog_handlers_ds_state.each_pair do |handler_type, handler_type_cfg|
+          cli_resource 'syslog-handlers' do
+            profile_name profile_name
+            desired_state handler_type_cfg
+            resource_address "/profile=#{profile_name}/subsystem=logging"
+            resource_type handler_type
+            eap_version version
+            cert_path cert_path
+            username ldap_jboss_acc
+            userpw ldap_jboss_pw
+          end
 
-        v_syslog_handlers_ds_state.each_pair do |handler_name, _one_handler_cfg|
-          exec_cli_resource 'add syslog handler'  do
-            cli_commands "try, /profile=#{profile_name}/subsystem=logging/root-logger=ROOT:add-handler(name=#{handler_name}), catch, #{version < 6.4 ? 'pwd' : 'echo Ihjatava'}, end-try"
-            live_stream true
-            echo_command major_version > 6
-            major_version major_version
+          handler_type_cfg.each_pair do |handler_name, _one_handler_cfg|
+            exec_cli_resource 'add syslog handler'  do
+              cli_commands "try, /profile=#{profile_name}/subsystem=logging/root-logger=ROOT:add-handler(name=#{handler_name}), catch, #{version < 6.4 ? 'pwd' : 'echo Ihjatava'}, end-try"
+              live_stream true
+              echo_command major_version > 6
+              major_version major_version
+            end
           end
         end
       end

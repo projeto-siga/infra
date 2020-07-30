@@ -1,0 +1,31 @@
+---
+# vars file for rl_redis
+default_redis_conf:
+  port: 6379
+  maxclients: 10000
+  maxmemory: 2g
+  maxmemory_samples: 5
+  maxmemory_policy: noeviction
+  remote_log:
+    enabled: no
+    tag: app_redis
+    facility: local5
+  master_conf:
+  # dicionario master_conf: {"ip": "<ip>", "port": "<port>", password: "<password>"}
+  serve_stale: yes
+  repl_ro: yes
+  repl_ping_period: 10
+  repl_timeout: 60
+  repl_backlog_size: 1mb
+  repl_backlog_ttl: 3600
+  repl_priority: 100
+  repl_ignore_maxmem: yes
+  sentinel_enabled: no
+  sentinel_bind: 127.0.0.1
+  sentinel_port: 26379
+  sentinel_down_ms: 30000
+  sentinel_failover_timout: 180000
+  #sobrescreva com encrypted strings os valores abaixo
+  password: minhasenhadefault
+  config_cmd: meuconfigcmddefault
+  flushall_cmd: meuflushcmddefault

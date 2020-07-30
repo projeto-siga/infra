@@ -1,0 +1,38 @@
+# TO DO:
+# Implementar get_iface_from_given_ip
+
+- name: Debug systemd item
+  debug:
+    var: firewalld_item
+  tags:
+    - debug
+    - never
+
+- name: Port with protocol
+  set_fact:
+    port_value: "{{ firewalld_item.port if 'tcp' in firewalld_item.port or 'udp' in firewalld_item.port else firewalld_item.port+'/tcp'}}"
+  when: firewalld_item.port is defined
+
+- name: Debug systemd item
+  debug:
+    var: port_value
+  tags:
+    - debug
+    - never
+
+- name: "Firewalld Action"
+  firewalld:
+    state: "{{  firewalld_item.state | default('enabled') }}"
+    zone: "{{  firewalld_item.zone | default(omit) }}"
+    service: "{{  firewalld_item.service | default(omit) }}"
+    masquerade: "{{  firewalld_item.masquerade | default(omit) }}"
+    immediate: "{{  firewalld_item.immediate | default(omit) }}"
+    source: "{{  firewalld_item.source | default(omit) }}"
+    permanent: "{{  firewalld_item.permanent | default(omit) }}"
+    timeout: "{{  firewalld_item.timeout | default(omit) }}"
+    interface: "{{  firewalld_item.interface | default(omit) }}"
+    port: "{{  port_value if port_value is defined else firewalld_item.port | default(omit) }}"
+    rich_rule: "{{  firewalld_item.rich_rule | default(omit) }}"
+    icmp_block: "{{  firewalld_item.icmp_block | default(omit) }}"
+    icmp_block_inversion: "{{  firewalld_item.icmp_block_inversion | default(omit) }}"
+    offline:  "{{  firewalld_item.offline | default(omit) }}"

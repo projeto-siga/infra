@@ -1,0 +1,26 @@
+---
+
+- name: Config Firewalld for Redis
+  import_role:
+    name: rl_firewalld
+  vars:
+    firewalld_conf:
+      -
+        port: "{{ redis_conf.port }}"
+        zone: public
+        state: enabled
+        immediate: yes
+        permanent: yes
+
+
+- name: Config Firewalld for Redis-sentinel
+  import_role:
+    name: rl_firewalld
+  when: redis_conf.sentinel_bind != '127.0.0.1'
+  vars:
+    firewalld_conf:
+      -
+        state: enabled
+        port: "{{ redis_conf.sentinel_port }}"
+        immediate: yes
+        permanent: yes

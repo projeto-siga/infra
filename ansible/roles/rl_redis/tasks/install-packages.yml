@@ -1,0 +1,9 @@
+---
+- name: install servers
+  import_role:
+    name: rl_packages
+  vars:
+    packages_conf:
+     - 
+       name: redis
+       state: present

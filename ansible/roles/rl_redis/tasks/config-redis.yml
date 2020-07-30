@@ -1,0 +1,20 @@
+
+- name: Template redis.conf file
+  template:
+    src: redis.conf.j2
+    dest: /etc/redis.conf
+    owner: redis
+    group: root
+    mode: 0640
+  notify:
+    - restart redis
+
+- name: Template redis-sentinel.conf file
+  template:
+    src: redis-sentinel.conf.j2
+    dest: /etc/redis-sentinel.conf
+    owner: redis
+    group: root
+    mode: 0640
+  notify:
+    - redis-sentinel service handler

@@ -1,0 +1,14 @@
+---
+# handlers file for rl_redis
+- name: restart redis
+  systemd:
+    name: redis
+    state: restarted
+
+- name: redis-sentinel service handler
+  systemd:
+    name: redis
+    state: "{{ 'restarted' if redis_conf.sentinel_enabled else 'stopped' }}"
+    enabled: "{{ redis_conf.sentinel_enabled }}"
+    masked: "{{ not redis_conf.sentinel_enabled }}"
+    

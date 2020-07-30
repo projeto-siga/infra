@@ -194,6 +194,22 @@ module InfraEAP
         to f_log_dir()
       end
 
+      directory f_gc_log_dir() do
+        owner 'jboss'
+        group 'root'
+        mode '0750'
+        action :create
+        recursive true
+      end
+
+      link "#{f_sys_log_base_dir()}/gc" do
+        to f_gc_log_dir()
+      end
+
+      if f_add_packages(util_soft_repo_cfg).any?
+        package f_add_packages(util_soft_repo_cfg)
+      end
+      
       auxsoft_base_dir = f_util_soft_base_dir(util_soft_repo_cfg)
       auxsoft_repo_cfg = f_util_soft_cfg(util_soft_repo_cfg)
 
