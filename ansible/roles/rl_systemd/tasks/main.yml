@@ -6,4 +6,5 @@
   loop: "{{ systemd_conf }}"
   loop_control:
     loop_var: systemd_item
+  when: systemd_conf | length > 0
   

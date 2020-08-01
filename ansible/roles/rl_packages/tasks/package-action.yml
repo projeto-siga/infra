@@ -1,0 +1,6 @@
+- name: Action on package list
+  package:
+    state: "{{ item }}"
+    name: "{{ package_dict[use_option]| json_query(\"[?state=='\"+ item +\"'].name\") |unique }}"
+    use: "{{ use_option }}"
+  loop: "{{ package_dict[use_option]| json_query('[].state') |unique }}"

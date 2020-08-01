@@ -1,9 +1,28 @@
 ---
 # tasks file for rl_packages
 
-- name: Install Packages
-  package:
-      state: "{{ item.state | default('present') }}"
-      name: "{{ item.name }}"
-      use: "{{ item.use | default(omit) }}"
+- name: Group by use
+  set_fact:
+    package_dict: "{{ package_dict | default({}) | combine({ item.use | default('auto'): package_dict[item.use | default('auto')]|default([]) + [{'name': item.name, 'state': item.state| default('present') }]  }, recursive=True) }}"
   loop: "{{ packages_conf }}"
+
+- name: Debug package_dict
+  debug:
+    var: package_dict
+  tags:
+    - never
+    - debug
+
+- name: Debug use list
+  debug:
+    msg: "{{ package_dict | json_query('keys(@)') }}"
+  tags:
+    - never
+    - debug
+
+- name: Install Packages
+  include_tasks: package-action.yml
+  loop: "{{ package_dict | json_query('keys(@)') }}"
+  loop_control:
+    loop_var: use_option
+  when: packages_conf is defined and packages_conf | length > 0
