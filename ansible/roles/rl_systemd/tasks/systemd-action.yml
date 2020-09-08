@@ -30,8 +30,8 @@
   debug:
     var: systemd_status
   tags:
-    - debug
     - never
+    - debug
 
 - name: Daemon-reload if needed
   systemd:

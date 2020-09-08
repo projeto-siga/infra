@@ -10,7 +10,7 @@
 
 - name: Port with protocol
   set_fact:
-    port_value: "{{ firewalld_item.port if 'tcp' in firewalld_item.port or 'udp' in firewalld_item.port else firewalld_item.port+'/tcp'}}"
+    port_value: "{{ firewalld_item.port if 'tcp' in firewalld_item.port | string or 'udp' in firewalld_item.port | string else firewalld_item.port | string+'/tcp'}}"
   when: firewalld_item.port is defined
 
 - name: Debug systemd item
@@ -31,8 +31,13 @@
     permanent: "{{  firewalld_item.permanent | default(omit) }}"
     timeout: "{{  firewalld_item.timeout | default(omit) }}"
     interface: "{{  firewalld_item.interface | default(omit) }}"
-    port: "{{  port_value if port_value is defined else firewalld_item.port | default(omit) }}"
+    port: "{{  port_value if firewalld_item.port is defined else omit }}"
     rich_rule: "{{  firewalld_item.rich_rule | default(omit) }}"
     icmp_block: "{{  firewalld_item.icmp_block | default(omit) }}"
     icmp_block_inversion: "{{  firewalld_item.icmp_block_inversion | default(omit) }}"
     offline:  "{{  firewalld_item.offline | default(omit) }}"
+
+- name: Null to Port with protocol (eh null mesmo, fique 3k)
+  set_fact:
+    port_value:
+  when: firewalld_item.port is defined

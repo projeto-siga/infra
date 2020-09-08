@@ -1,2 +1,11 @@
 ---
 # vars file for rl_firewalld
+packages_conf:
+  -
+    name: firewalld
+systemd_conf:
+  -
+    name: firewalld
+    state: started
+    enabled: yes
+    masked: no

@@ -1,19 +1,6 @@
 ---
 # tasks file for rl_firewalld
 
-- name: Enable Start Firewalld
-  import_role:
-    name: rl_systemd
-  vars:
-    systemd_conf:
-      -
-        name: firewalld
-        state: started
-        enabled: yes
-        masked: no
-  tags:
-    - firewalld_service
-
 - name: Execute systemd action
   include_tasks:
     file: firewall-action.yml

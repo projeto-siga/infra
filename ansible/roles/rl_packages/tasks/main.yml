@@ -1,10 +1,15 @@
 ---
 # tasks file for rl_packages
-
+- name: Clean package_dict
+  set_fact:
+    package_dict: {}
+    
 - name: Group by use
   set_fact:
-    package_dict: "{{ package_dict | default({}) | combine({ item.use | default('auto'): package_dict[item.use | default('auto')]|default([]) + [{'name': item.name, 'state': item.state| default('present') }]  }, recursive=True) }}"
-  loop: "{{ packages_conf }}"
+    package_dict: "{{ package_dict | default({}) | combine({ item.use | default('auto'): package_dict[package_item.use | default('auto')]|default([]) + [{'name': package_item.name, 'state': package_item.state| default('present') }]  }, recursive=True) }}"
+  loop: "{{ packages_conf| default([]) }}"
+  loop_control:
+    loop_var: package_item
 
 - name: Debug package_dict
   debug:
@@ -15,7 +20,7 @@
 
 - name: Debug use list
   debug:
-    msg: "{{ package_dict | json_query('keys(@)') }}"
+    msg: "{{ package_dict | json_query('keys(@)') | default([]) }}"
   tags:
     - never
     - debug
@@ -25,4 +30,4 @@
   loop: "{{ package_dict | json_query('keys(@)') }}"
   loop_control:
     loop_var: use_option
-  when: packages_conf is defined and packages_conf | length > 0
+  when: packages_conf is defined and packages_conf is not none and packages_conf | length > 0
