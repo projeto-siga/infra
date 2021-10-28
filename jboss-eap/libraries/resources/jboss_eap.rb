@@ -149,8 +149,8 @@ module InfraEAP
 
       [credstore_dir, truststore_dir].each do |one_dir|
         directory one_dir do
-          owner 'jboss'
-          group 'jboss'
+          owner f_jboss_owner()
+          group f_jboss_group()
           mode '0750'
           action :create
         end

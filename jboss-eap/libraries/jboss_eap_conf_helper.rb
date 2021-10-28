@@ -131,9 +131,9 @@ module InfraEAP
       
       def_cluster_port = f_default_cluster_port()
       v_default_lb_group_name = "#{p_profile_name}Default"
-      v_default_lb_group_name = v_default_lb_group_name.length > 20 ? v_default_lb_group_name[0..19] : v_default_lb_group_name
+      v_default_lb_group_name = v_default_lb_group_name.length > 19 ? v_default_lb_group_name[0..18] : v_default_lb_group_name
       v_default_balancer_name = "#{p_profile_name}Default"
-      v_default_balancer_name = v_default_balancer_name.length > 40 ? v_default_balancer_name[0..39] : v_default_balancer_name
+      v_default_balancer_name = v_default_balancer_name.length > 39 ? v_default_balancer_name[0..38] : v_default_balancer_name
 
       if f_profile_version(p_one_profile_cfg) < 6.3
         v_proxy_list = f_profile_cluster_address(p_one_profile_cfg).map { |one_address| "#{one_address}:#{def_cluster_port}" }.join(',')
@@ -276,12 +276,37 @@ module InfraEAP
     f_domain_cfg.fetch('debug-base-port', 8087).to_i
   end
 
+  def f_base_http_port
+    f_domain_cfg.fetch('http-base-port', 8080).to_i
+  end
+
   def f_enable_srv_group_gclog(p_one_srv_grp_cfg)
     f_domain_cfg().fetch('enable-gclog', false) || p_one_srv_grp_cfg.fetch('enable-gclog', false)
   end
 
   def f_srv_group_debug_port(p_one_srv_grp_cfg)
     f_base_debug_port() + f_srv_port_offset(p_one_srv_grp_cfg).to_i
+  end
+
+  def f_srv_group_http_port(p_one_srv_grp_cfg)
+    f_base_http_port() + f_srv_port_offset(p_one_srv_grp_cfg).to_i
+  end
+
+  def f_public_http(p_one_srv_grp_cfg)
+    f_domain_cfg().fetch('public-http', false) || p_one_srv_grp_cfg.fetch('public-http', false)
+  end
+
+  def f_http_trust(p_one_srv_grp_cfg)
+    slavenames = f_slavenames_in_srvgroup(p_one_srv_grp_cfg)
+    slavenames = slavenames.reject{ |v| v==node['hostname'] }
+    log slavenames
+    ips_2_trust = []
+    
+    slavenames.each do |one_slavename|
+      ips_2_trust = ips_2_trust + ["#{f_resolve_name(one_slavename)}/32"]
+    end
+
+    ips_2_trust
   end
 
   def f_srv_port_offset(p_one_srv_grp_cfg)
@@ -454,6 +479,22 @@ module InfraEAP
       f_default_role_map.keys
     end
 
+    def f_mandatory_user
+      v_user = if f_is_rbac() && !f_is_ldap_auth()
+                  'jbmonitor'
+               elsif !f_is_rbac() && !f_is_ldap_auth()
+                  'jbossadm'
+                else
+                  "#{f_ldap_principal_acc()}"
+                end
+      
+      f_has_jmx_zabbix_conf() ? [v_user] + [f_zabbix_user()] : [v_user]
+    end
+
+    def f_is_rbac()
+       f_domain_cfg().key?('role-mapping') || f_domain_cfg().key?('ldap-role-mapping') || f_is_ldap_auth()
+    end
+
     def f_default_role_map
       f_expand_role_map({
         "Administrator" => [],
@@ -462,20 +503,22 @@ module InfraEAP
         "Maintainer" => [],
         "Monitor" => {
           "groups" => [],
-          "users" => ["#{f_ldap_principal_acc()}"]
+          "users" => f_mandatory_user()
         },
         "Operator" => [],
         "SuperUser" => []
       })
     end
 
-    def f_jboss_ldap_role_mappings
-      c_mandatory_monitor_user = { "Monitor" => { "users" => ["#{f_ldap_principal_acc()}"] }}
+    def f_jboss_role_mappings
+      c_mandatory_monitor_user = { "Monitor" => { "users" => f_mandatory_user() }}
+      
+      log "Mandatory: #{c_mandatory_monitor_user}"
 
-      v_role_mapping = f_domain_cfg().fetch('ldap-role-mapping', {})
+      v_role_mapping = f_domain_cfg().fetch('role-mapping', f_domain_cfg().fetch('ldap-role-mapping', {}))
 
       v_role_mapping = v_role_mapping.nil? ? f_default_role_map() : f_default_role_map().merge(f_expand_role_map(v_role_mapping))
-
+      
       v_role_mapping.merge(c_mandatory_monitor_user){|key, oldval, newval| newval.merge(oldval){ |key2, oldval2, newval2| (oldval2+newval2).uniq }}
     end
 
@@ -508,13 +551,13 @@ module InfraEAP
       vault_alias = f_vault_alias()
       vault_iter_count = f_vault_iter_count()
 
-      keytool_cmd = "sudo -u jboss /usr/bin/keytool -genseckey -alias #{vault_alias} -storetype jceks -keyalg AES -keysize 128 -storepass #{vault_secret}"
+      keytool_cmd = "sudo -u #{f_jboss_owner()} /usr/bin/keytool -genseckey -alias #{vault_alias} -storetype jceks -keyalg AES -keysize 128 -storepass #{vault_secret}"
       keytool_cmd = " #{keytool_cmd} -keypass #{vault_secret} -validity 7300 -keystore #{vault_path}"
       execute 'create keystore to vault' do
         command keytool_cmd
         action :run
         not_if { ::File.exist? vault_path }
-        sensitive true
+        sensitive false
       end
     end
 
@@ -523,7 +566,7 @@ module InfraEAP
     end
 
     def f_execute_vault(p_block_name, p_attr_name, p_attr_value, p_init)
-      vault_cmd = "sudo -u jboss #{f_my_version() < 6.4 ? 'JAVA_OPTS="-Djboss.modules.system.pkgs=com.sun.crypto.provider" ' : ''}#{f_eap_dir()}/bin/vault.sh"
+      vault_cmd = "sudo -u #{f_jboss_owner()} #{f_my_version() < 6.4 ? 'JAVA_OPTS="-Djboss.modules.system.pkgs=com.sun.crypto.provider" ' : ''}#{f_eap_dir()}/bin/vault.sh"
       vault_cmd = "#{vault_cmd} --keystore #{f_vault_path()} --keystore-password '#{f_vault_secret()}' --alias #{f_vault_alias()}"
       vault_cmd = "#{vault_cmd} --vault-block #{p_block_name} --attribute #{p_attr_name} --sec-attr '#{p_attr_value}'"
       vault_cmd = "#{vault_cmd} --enc-dir #{f_vault_dir()} --iteration #{f_vault_iter_count()} --salt '#{f_vault_salt()}'"
@@ -549,7 +592,7 @@ module InfraEAP
     end
 
     def f_init_ssl_cert_legacy64
-      var_cmd = "sudo -u jboss /usr/bin/keytool -genkeypair -alias #{node['hostname']} -storetype jks -keyalg RSA -keysize 2048 -keypass '#{f_truststore_secret()}'"
+      var_cmd = "sudo -u #{f_jboss_owner()} /usr/bin/keytool -genkeypair -alias #{node['hostname']} -storetype jks -keyalg RSA -keysize 2048 -keypass '#{f_truststore_secret()}'"
       var_cmd = "#{var_cmd} -keystore #{f_https_truststore_path()} -storepass '#{f_truststore_secret()}'"
       var_cmd = "#{var_cmd} -dname \"CN=#{node['fqdn']},OU=STI,O=TRF2,L=Rio de Janeiro,ST=RJ,C=BR\" -validity 7300 -v"
 
@@ -573,16 +616,57 @@ module InfraEAP
       jgroups_members = []
 
       f_my_server_groups().each_pair do |_prf_name, srv_groups|
-        sys_props = srv_groups.map { |_grp_name, grp_cfg| f_system_properties(grp_cfg) }[0]
-        if sys_props.key?('jboss.cluster.tcp.initial_hosts')
-          init_hosts_txt = sys_props.fetch('jboss.cluster.tcp.initial_hosts')['value'].strip
-          jgroups_members = jgroups_members + init_hosts_txt.gsub('[','/32:')[0..-2].split('],')
+        sys_props = srv_groups.map { |_grp_name, grp_cfg| f_system_properties(grp_cfg) }
+        sys_props.each do |sysprop_item|
+          if sysprop_item.key?('jboss.cluster.tcp.initial_hosts')
+            init_hosts_txt = sysprop_item.fetch('jboss.cluster.tcp.initial_hosts')['value'].strip
+            jgroups_members = jgroups_members + init_hosts_txt.gsub('[','/32:')[0..-2].split('],')
+          end
         end
       end
 
       log jgroups_members.to_s
 
       jgroups_members
+    end
+
+    def f_has_full_server
+      v_has_full = false
+
+      f_my_server_groups().keys.each do |profile_name|
+        v_has_full = f_has_full_source_profile(f_profiles()[profile_name]) ? true : v_has_full
+      end
+      
+      v_has_full
+    end
+
+    def f_zabbix_user
+      f_zabbix_conf().fetch('user', '')
+    end
+
+    def f_zabbix_password
+      f_zabbix_conf().fetch('password', '')
+    end
+
+    def f_zabbix_server_address
+      f_zabbix_conf().fetch('server-address', '')
+    end
+
+    def f_zabbix_conf
+      f_domain_cfg().fetch('zabbix-conf', {})
+    end
+
+    def f_has_jmx_zabbix_conf
+      !f_zabbix_user().empty? && !f_zabbix_password().empty? && !f_zabbix_server_address().empty?
+    end
+
+    def f_jmx_desired
+      jmx_desired ={
+                      "jmx": {
+                        "use-management-endpoint" => "false"
+                      }
+                    }
+      jmx_desired
     end
   end
 end

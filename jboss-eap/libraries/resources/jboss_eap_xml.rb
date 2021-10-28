@@ -52,7 +52,7 @@ module InfraEAP
 
         file "#{configuration_dir}/#{domain_config_file}" do
           content new_domain_content
-          owner 'jboss'
+          owner f_jboss_owner()
           group 'root'
           mode '0640'
           action :create
@@ -84,7 +84,7 @@ module InfraEAP
       host_config_path = "#{configuration_dir}/#{host_config_file}"
       template host_config_path do
         source "host-master-#{version}.xml.erb"
-        owner 'jboss'
+        owner f_jboss_owner()
         group 'root'
         mode '0640'
         action :create
@@ -111,19 +111,20 @@ module InfraEAP
       domain_version = new_resource.domain_version
       domain_name = new_resource.domain_name
       jboss_user_roles = f_jboss_user_roles()
-      jboss_ldap_role_mappings = f_jboss_ldap_role_mappings()
+      jboss_role_mappings = f_jboss_role_mappings()
 
       domain_config_path = "#{configuration_dir}/#{domain_config_file}"
       template domain_config_path do
         source "domain.xml-#{domain_version}.erb"
-        owner 'jboss'
+        owner f_jboss_owner()
         group 'root'
         mode '0755'
         action :create
         variables(
           domain_name: domain_name,
           jboss_user_roles: jboss_user_roles, 
-          jboss_ldap_role_mappings: jboss_ldap_role_mappings
+          jboss_role_mappings: jboss_role_mappings,
+          is_rbac: f_is_rbac()
         )
         not_if "test -f #{domain_config_path}"
       end
@@ -147,7 +148,7 @@ module InfraEAP
 
       template host_config_path do
         source "host-slave-#{version}.xml.erb"
-        owner 'jboss'
+        owner f_jboss_owner()
         group 'root'
         mode '0640'
         action :create

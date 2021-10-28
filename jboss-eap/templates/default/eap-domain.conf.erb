@@ -43,10 +43,10 @@
 # Additionals args to include on startup
 #<%= var_prefix -%>OPTS=
 
-<% if @version < 7 || @is_rpm == false %>
-<%= var_prefix -%>USER=jboss
+<% if @is_rpm == false %>
+<%= var_prefix -%>USER=<%= @jboss_owner %>
 
-<%= var_prefix -%>GROUP=jboss
+<%= var_prefix -%>GROUP=<%= @jboss_group %>
 
 <%= var_prefix -%>HOME="<%= @jboss_install_home_dir -%>"
 <% end %>

@@ -24,14 +24,14 @@ end-if
 # REF: https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html/how_to_configure_server_security/securing_the_server_and_its_interfaces#elytron_one_way_ssl_mgmt
 #
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:read-resource
- /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:add(path=<%= @https_truststore_path -%>,credential-reference={clear-text=<%= @truststore_secret -%>},type=JKS)
+ /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:add(path=<%= @https_truststore_path -%>,credential-reference={clear-text="<%= @truststore_secret -%>"},type=JKS)
 end-if
 if (result == undefined) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:read-alias(alias=<%= node['hostname'] -%>)
-  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:generate-key-pair(alias=<%= node['hostname'] -%>,algorithm=RSA,key-size=4096,validity=3650,credential-reference={clear-text=<%= @truststore_secret -%>},distinguished-name="CN=<%= node['fqdn'] -%>,DC=corp,DC=jfrj,DC=gov,DC=br")
+  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:generate-key-pair(alias=<%= node['hostname'] -%>,algorithm=RSA,key-size=4096,validity=3650,credential-reference={clear-text="<%= @truststore_secret -%>"},distinguished-name="CN=<%= node['fqdn'] -%>,DC=corp,DC=jfrj,DC=gov,DC=br")
 end-if
 /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=<%= @master_ssl_keystore -%>:store()
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-manager=httpsKM:read-resource
-  /host=<%= node['hostname'] -%>/subsystem=elytron/key-manager=httpsKM:add(key-store=<%= @master_ssl_keystore -%>,algorithm="SunX509",credential-reference={clear-text=<%= @truststore_secret -%>})
+  /host=<%= node['hostname'] -%>/subsystem=elytron/key-manager=httpsKM:add(key-store=<%= @master_ssl_keystore -%>,algorithm="SunX509",credential-reference={clear-text="<%= @truststore_secret -%>"})
 end-if
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/server-ssl-context=httpsSSC:read-resource
   /host=<%= node['hostname'] -%>/subsystem=elytron/server-ssl-context=httpsSSC:add(key-manager=httpsKM,protocols=["TLSv1.2"])
@@ -74,10 +74,10 @@ end-if
 # REF: https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html/how_to_configure_server_security/securing_the_server_and_its_interfaces#configure-ssl-managed-domain-elytron
 #
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=slave2MasterKeyStr:read-resource
-  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=slave2MasterKeyStr:add(path=<%= @truststore_base_dir -%>/slave2MasterKeyStr.jks,credential-reference={clear-text=<%= @truststore_secret -%>},type=JKS)
+  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=slave2MasterKeyStr:add(path=<%= @truststore_base_dir -%>/slave2MasterKeyStr.jks,credential-reference={clear-text="<%= @truststore_secret -%>"},type=JKS)
 end-if
 if (result == undefined) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=slave2MasterKeyStr:read-alias(alias=<%= node['hostname'] -%>)
-  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=slave2MasterKeyStr:generate-key-pair(alias=<%= node['hostname'] -%>,algorithm=RSA,key-size=4096,validity=3650,credential-reference={clear-text=<%= @truststore_secret -%>},distinguished-name="CN=<%= node['fqdn'] -%>,DC=corp,DC=jfrj,DC=gov,DC=br")
+  /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=slave2MasterKeyStr:generate-key-pair(alias=<%= node['hostname'] -%>,algorithm=RSA,key-size=4096,validity=3650,credential-reference={clear-text="<%= @truststore_secret -%>"},distinguished-name="CN=<%= node['fqdn'] -%>,DC=corp,DC=jfrj,DC=gov,DC=br")
 end-if
 <% if @update_master_cert %>
 if (result != undefined) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-store=slave2MasterKeyStr:read-alias(alias=<%= @master_fqdn -%>)
@@ -93,7 +93,7 @@ if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/trus
   /host=<%= node['hostname'] -%>/subsystem=elytron/trust-manager=slave2MasterTrustMgr:add(key-store=slave2MasterKeyStr,algorithm="SunX509")
 end-if
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/key-manager=slave2MasterKeyMgr:read-resource
-  /host=<%= node['hostname'] -%>/subsystem=elytron/key-manager=slave2MasterKeyMgr:add(key-store=slave2MasterKeyStr,credential-reference={clear-text=<%= @truststore_secret -%>},algorithm="SunX509")
+  /host=<%= node['hostname'] -%>/subsystem=elytron/key-manager=slave2MasterKeyMgr:add(key-store=slave2MasterKeyStr,credential-reference={clear-text="<%= @truststore_secret -%>"},algorithm="SunX509")
 end-if
 if (outcome != success) of /host=<%= node['hostname'] -%>/subsystem=elytron/client-ssl-context=slave2Master-CSC:read-resource
   /host=<%= node['hostname'] -%>/subsystem=elytron/client-ssl-context=slave2Master-CSC:add(key-manager=slave2MasterKeyMgr,protocols=["TLSv1.2"],trust-manager=slave2MasterTrustMgr)
@@ -107,7 +107,7 @@ end-if
 /host=<%= node['hostname'] -%>/subsystem=elytron/authentication-configuration=slave2MasterSSLConfiguration:write-attribute(name=sasl-mechanism-selector,value=DIGEST-MD5)
 /host=<%= node['hostname'] -%>/subsystem=elytron/authentication-configuration=slave2MasterSSLConfiguration:write-attribute(name=authentication-name,value=<%= node['hostname'] -%>)
 /host=<%= node['hostname'] -%>/subsystem=elytron/authentication-configuration=slave2MasterSSLConfiguration:write-attribute(name=realm,value=ManagementRealm)
-/host=<%= node['hostname'] -%>/subsystem=elytron/authentication-configuration=slave2MasterSSLConfiguration:write-attribute(name=credential-reference,value={clear-text=<%= @slave_secret -%>})
+/host=<%= node['hostname'] -%>/subsystem=elytron/authentication-configuration=slave2MasterSSLConfiguration:write-attribute(name=credential-reference,value={clear-text="<%= @slave_secret -%>"})
 /host=<%= node['hostname'] -%>/subsystem=elytron/authentication-context=slave2MasterSSLContext:write-attribute(name=match-rules,value=[{match-host=<%= @master_fqdn -%>,authentication-configuration=slave2MasterSSLConfiguration,ssl-context=slave2Master-CSC}])
 /host=<%= node['hostname'] -%>:write-remote-domain-controller(host=<%= @master_fqdn -%>,port=9993,protocol=remote+https,authentication-context=slave2MasterSSLContext)
 # END SETUP TLS FROM SLAVE TO master
@@ -119,6 +119,11 @@ end-if
 <% if @has_pvt_jg_nw %>
 if (outcome != success) of /host=<%= node['hostname'] -%>/interface=private:read-resource
   /host=<%= node['hostname'] -%>/interface=private:add(inet-address="${jboss.bind.address.private:<%= @pvt_if_ipaddr -%>}")
+end-if
+<% end %>
+<% if @enable_unsecure_interface %>
+if (outcome != success) of /host=<%= node['hostname'] -%>/interface=unsecure:read-resource
+  /host=<%= node['hostname'] -%>/interface=unsecure:add(inet-address="${jboss.bind.address.unsecure:<%= node['ipaddress'] -%>}")
 end-if
 <% end %>
 stop-embedded-host-controller

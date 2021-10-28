@@ -55,7 +55,7 @@ if (outcome == success) of /profile=<%= @new_profile_name -%>/subsystem=infinisp
 #/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=timestamps/component=transaction:write-attribute(name=mode,value=NONE)
 /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/invalidation-cache=entity:remove
 /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity:add(statistics-enabled=true)
-/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity/component=transaction:write-attribute(name=mode,value=NON_XA)
+/profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity/component=transaction:write-attribute(name=mode,value=NONE)
 /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity/component=expiration:write-attribute(name=max-idle,value=100000)
 /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=entity/memory=object:write-attribute(name=size,value=10000)
 /profile=<%= @new_profile_name -%>/subsystem=infinispan/cache-container=hibernate/local-cache=local-query:write-attribute(name=statistics-enabled,value=true)

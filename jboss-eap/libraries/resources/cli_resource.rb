@@ -21,6 +21,8 @@ module InfraEAP
     property :userpw, String, default: ''
     property :cert_path, String, default: ''
     property :eap_version, Float, default: 7.2
+    property :jboss_owner, String, default: EAP::JBOSS_OWNER
+    property :jboss_group, String, default: EAP::JBOSS_GROUP
 
     action :apply do
       if !new_resource.desired_state.empty?
@@ -35,6 +37,8 @@ module InfraEAP
         userpw = new_resource.userpw
         cert_path = new_resource.cert_path
         eap_version = new_resource.eap_version
+        jboss_owner = new_resource.jboss_owner
+        jboss_group = new_resource.jboss_group
 
         cli_script_path = "/tmp/#{profile_name}-#{name}-converge.cli"
         desired_state_path = "/tmp/#{profile_name}-#{name}-desired.json"
@@ -51,7 +55,7 @@ module InfraEAP
 
         jboss_cli_args = (eap_version < 7) ? "controller=#{node['ipaddress']}:#{9999 + port_offset} " : ""
         execute "apply diff #{name}" do
-          command "sudo -u jboss #{jboss_eap_dir}/bin/jboss-cli.sh -c #{jboss_cli_args}--file=#{cli_script_path}"
+          command "sudo -u #{jboss_owner} #{jboss_eap_dir}/bin/jboss-cli.sh -c #{jboss_cli_args}--file=#{cli_script_path}"
         end
       end
     end

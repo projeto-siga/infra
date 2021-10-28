@@ -81,31 +81,33 @@ if (result.mechanism-name != "JBOSS-LOCAL-USER" || result.realm-mapper != "local
 end-if
 ### NAO FUNCIONOU, MAS TÁ NA DOC: /host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:list-add(name=properties, index=0, value={name="wildfly.sasl.local-user.default-user", value="$local"})  
 /host=<%= node['hostname'] -%>/subsystem=elytron/configurable-sasl-server-factory=ldap-sasl-server-factory:write-attribute(name=properties,value={name="wildfly.sasl.local-user.default-user", value="$local"})
-/core-service=management/access=authorization:write-attribute(name=provider,value=rbac)
-/core-service=management/access=authorization:write-attribute(name=use-identity-roles,value=true)
+#/core-service=management/access=authorization:write-attribute(name=provider,value=rbac)
+#/core-service=management/access=authorization:write-attribute(name=use-identity-roles,value=true)
 <% @jboss_user_roles.each do |one_role_name| %>
-if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:read-resource
-  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:add
-end-if
-<% this_role_users = @jboss_ldap_role_mappings.fetch(one_role_name).fetch('users', []).uniq
-   this_role_groups = @jboss_ldap_role_mappings.fetch(one_role_name).fetch('groups', []).uniq
+#if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:read-resource
+#  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:add
+#end-if
+<% this_role_users = @jboss_role_mappings.fetch(one_role_name).fetch('users', []).uniq
+   this_role_groups = @jboss_role_mappings.fetch(one_role_name).fetch('groups', []).uniq
    this_role_groups.each do |one_groupname|
 %>
 <% if !one_groupname.nil? && !one_groupname.empty?  %>
-if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:read-resource
-  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:add(name=<%= one_groupname -%>,type=GROUP)
-end-if
+#if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:read-resource
+#  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:add(name=<%= one_groupname -%>,type=GROUP)
+#end-if
 <%  end %>
 <%  end %>
 <% this_role_users.each do |one_username| %>
 <% if !one_username.nil? && !one_username.empty?  %>
-if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:read-resource
-  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:add(name=<%= one_username -%>,type=USER)
-end-if
+#if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:read-resource
+#  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:add(name=<%= one_username -%>,type=USER)
+#end-if
 <%  end %>
 <%  end %>
 <%  end %>
 /host=<%= node['hostname'] -%>/core-service=management/management-interface=http-interface:undefine-attribute(name=security-realm)
+if (result != "ldap-http-auth" ) of /host=<%= node['hostname'] -%>/core-service=management/management-interface=http-interface:read-attribute(name=http-authentication-factory)
 /host=<%= node['hostname'] -%>/core-service=management/management-interface=http-interface:write-attribute(name=http-authentication-factory,value=ldap-http-auth)
+end-if
 /host=<%= node['hostname'] -%>/core-service=management/management-interface=http-interface:write-attribute(name=http-upgrade,value={"enabled" => true,"sasl-authentication-factory" => "management-sasl-authentication"})
 # END SETUP LDAP AUTHENTICATION

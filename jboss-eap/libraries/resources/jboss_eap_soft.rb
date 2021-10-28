@@ -47,7 +47,7 @@ module InfraEAP
       util_soft_repo_cfg = new_resource.util_soft_repo_cfg
       is_rpm = new_resource.is_rpm
       eap_zip_url = new_resource.eap_zip_url
-      jboss_user = f_jboss_user()
+      jboss_owner = f_jboss_owner()
       jboss_group = f_jboss_group()
       jboss_install_dir = f_install_home_dir(major_version, version)
       jboss_srv_conf_path = f_install_service_conf_path(major_version)
@@ -90,16 +90,17 @@ module InfraEAP
         eap_zip_file_name =  eap_zip_url.split('/')[-1]
         eap_zip_local_path = "/tmp/#{eap_zip_file_name}"
 
-        if !jboss_user.eql?(jboss_group)
+        if !jboss_owner.eql?(jboss_group)
           group jboss_group do
             action :create
+            not_if {jboss_owner == 'root'}
           end
         end
           
-        user jboss_user do
+        user jboss_owner do
           comment 'JBoss EAP user'
           uid 185
-          if !jboss_user.eql?(jboss_group)
+          if !jboss_owner.eql?(jboss_group)
           gid jboss_group
           end
           home jboss_install_dir
@@ -108,6 +109,7 @@ module InfraEAP
           manage_home false
           password (0...50).map { ('a'..'z').to_a[rand(26)] }.join
           action :create
+          not_if {jboss_owner == 'root'} 
         end
 
         remote_file eap_zip_local_path do
@@ -133,7 +135,7 @@ module InfraEAP
         end
 
         directory f_log_dir() do
-          owner 'jboss'
+          owner jboss_owner
           group 'root'
           mode '0750'
           action :create
@@ -141,7 +143,7 @@ module InfraEAP
         end
         
         directory f_data_dir() do
-          owner 'jboss'
+          owner jboss_owner
           group 'root'
           mode '0750'
           action :create
@@ -149,7 +151,7 @@ module InfraEAP
         end
 
         execute 'Acerta permissões do domain' do
-          command "chown -R jboss #{f_domain_dir()}"
+          command "chown -R #{jboss_owner} #{f_domain_dir()}"
           action :run
         end
         
@@ -157,7 +159,7 @@ module InfraEAP
       end
 
       directory vault_dir do
-        owner 'jboss'
+        owner jboss_owner
         group 'root'
         mode '0750'
         action :create
@@ -195,7 +197,7 @@ module InfraEAP
       end
 
       directory f_gc_log_dir() do
-        owner 'jboss'
+        owner jboss_owner
         group 'root'
         mode '0750'
         action :create
@@ -274,7 +276,7 @@ module InfraEAP
           yum_group_name: yum_group_name,
           jboss_install_dir: jboss_install_dir,
           is_rpm: is_rpm,
-          user: f_jboss_user(),
+          user: f_jboss_owner(),
           group: f_jboss_group()
         )
       end

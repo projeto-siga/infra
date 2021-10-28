@@ -175,7 +175,7 @@
                  <% if @use_local_hb_cache %>
                 <cache-container name="hibernate" default-cache="local-query" module="org.jboss.as.jpa.hibernate:4">
                     <local-cache name="entity">
-                        <transaction mode="NON_XA" locking="PESSIMISTIC"/>
+                        <transaction mode="NONE" locking="PESSIMISTIC"/>
                         <eviction strategy="LRU" max-entries="10000"/>
                         <expiration max-idle="100000"/>
                     </local-cache>

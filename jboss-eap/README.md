@@ -135,17 +135,20 @@ Configura-se o domínio com um Hash chamada `jboss`.
 - `domain-name`: String. Opcional. Default `<master_hostname> domain`. Nome do domínio.
 - `version`: String. Opcional. Default 7.2
 - `eap-dir`: String. Opcional. Default `/opt/jboss`. Path que será o link simbólico para o diretório de instalação.
+- `owner`: String. Opcional. Default: `jboss`. "Dono" do software.
+- `group`: String. Opcional. Default: `jboss`. Grupo do software.
 - `is-rpm`: Boolean. Opcional. Default true se version >= 7.0, caso contrário, false.
 - `eap-zip-url`: String. Opcional se `is-rpm` = true. URL do pacote zip que contém a instalação do EAP na versão `version`.
 - `reinstall`: Boolean. Opcional. Default: false. Faz uninstall seguido de install a cada execução da receita.
 - `debug-base-port`: Integer. Opcional. Default: 8087
 - `enable-debug`: Boolean. Opcional. Default: false. Liga debug para todos os servers na porta `jboss.debug-base-port + jboss.profiles.<profile_name>.server-groups.<srv_grp_name>.socket-binding-port-offset`
 - `enable-gclog`: Boolean. Opcional. Default: false. Liga options da jvm para fazer log do GC para /var/log/jboss/gc/<server-group-name>.log
+- `public-http`: Boolean. Opcional. Default: false. Adiciona a porta http à zona pública (true), ou permite somente slaves do mesmo srvgroup (false)
 - `master-address`: String. Obrigatório. IP do servidor (com o qualificador do domínio) que terá o papel de domain controller (master host). 
 - `master-fqdn`: String. Opcional. Nome do servidor (com o qualificador do domínio) que terá o papel de domain controller (master host). Em ambientes com DNS server, se não especificado é descoberto automaticamente.
 - `slave-hosts`: List. Identificação do nomes dos slave hosts (sem o qualicador do domínio) que compõem o domínio junto com o master.
 - `legacy-slave-hosts`: Hash. Opcional. Configuração de slave hosts adicionais com versão de EAP inferior a do domínio. (testado com EAP 6.4)
-- `ldap-role-mappings`: Hash. Opcional (recomendado). Configuração do mapeamento de grupos/usuários LDAP para roles do Jboss.
+- `role-mappings`: Hash. Opcional (recomendado). Configuração do mapeamento de grupos/usuários LDAP para roles do Jboss.
 - `modules`: Hash. Opcional. Usado na instalação de Drivers e configuração de datasources.
 - `profiles`: Hash. Configuração de profiles.
 - `system-properties`: Hash. Opcional Configuração de system properties com escopo de domínio.
@@ -161,6 +164,8 @@ Exemplo:
   "version": "7.2",
   "is-rpm": true,
   "eap-dir": "/opt/jboss",
+  "owner": "jbuser",
+  "group": "jbgroup",
   "eap-zip-url": "",
   "reinstall": false,
   "debug-base-port": 8087,
@@ -229,7 +234,7 @@ Configurando `ldap-role-mapping`:
 ```json
 {
   "jboss": {
-    "ldap-role-mapping": {
+    "role-mapping": {
       "Administrator": ["jb_adm"],
       "Operator": {
         "groups": ["sec_oper"],
@@ -444,6 +449,7 @@ Especificação de `server-groups`:
   - `max-permgen-size`: String.
   - `enable-debug`: Boolean. Opcional. Default: false. Liga debug para servers deste grupo na porta `jboss.debug-base-port + socket-binding-port-offset`. Esse atributo no escopo de server group só é efetivo se `jboss.enable-debug` (atributo global) for false (valor default se não especificado).
   - `enable-gclog`: Boolean. Opcional. Default: false. Liga options da jvm para fazer log do GC para /var/log/jboss/gc/<server-group-name>.log
+  - `public-http`: Boolean. Opcional. Default: false. Adiciona a porta http à zona pública (true), ou permite somente slaves do mesmo srvgroup (false)
   - `jvm-options`: Array. Opcional. Default: ["-Dorg.jboss.resolver.warning=true", "-Dsun.rmi.dgc.server.gcInterval=3600000", "-Dsun.lang.ClassLoader.allowArraySyntax=true", "-Dfile.encoding=utf-8", "-Duser.language=pt", "-Duser.region=BR", "-Duser.country=BR", "-Djava.awt.headless=true", "Xss256K", "-Djava.security.egd=file:/dev/./urandom"]. Os valores default são combinados aos especificados aqui. Se deseja mudar o comportamento de alguma option default, deve especificá-la com valor desejado nesse atributo.
 
 

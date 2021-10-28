@@ -29,7 +29,7 @@ module EAP
       }
     }
   }
-  JBOSS_USER = 'jboss'
+  JBOSS_OWNER = 'jboss'
   JBOSS_GROUP = 'jboss'
   LINK_HOME =  '/opt/jboss'
   SUB_HOME = '/opt'

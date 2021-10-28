@@ -70,8 +70,15 @@ module InfraEAP
       v_dig_cmd = "dig +short #{ p_reverse ? '-x ' : ' '}#{p_addr}"
       v_addr = p_reverse ? response(v_dig_cmd).strip[0..-2] : response(v_dig_cmd).strip
       
+
       if v_addr.nil? || v_addr.empty?
-        raise "Unable to resolve address #{p_addr}"
+        v_getip_cmd = "ping #{p_addr} -c 1 | sed -e '/^.*#{p_addr}.*\\b\\([0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\)\\b.*$/!d'"
+        v_getip_cmd = "#{v_getip_cmd} -e 's/^.*#{p_addr}.*\\b\\([0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\.[0-9]\\{1,3\\}\\)\\b.*$/\\1/g' | head -1"
+        v_getnm_cmd = "grep #{p_addr} /etc/hosts |  sed -e 's/^[[:blank:]]*\\b#{p_addr}[[:blank:]]*\\b\\(\\([[a-z0-9\\-\\_]]*\\)*\\)\\b.*$/\\1/g' | head -1"
+        v_addr =  p_reverse ? response(v_getnm_cmd).strip  : response(v_getip_cmd).strip
+        if v_addr.nil? || v_addr.empty?
+          raise "Unable to resolve address #{p_addr}"
+        end
       end
 
       v_addr
@@ -163,12 +170,12 @@ module InfraEAP
       v_dirname.delete_suffix('/')
     end
 
-    def f_jboss_user
-      EAP::JBOSS_USER
+    def f_jboss_owner
+      f_domain_cfg().fetch('owner', EAP::JBOSS_OWNER)
     end
 
     def f_jboss_group
-      EAP::JBOSS_GROUP
+      f_domain_cfg().fetch('group', EAP::JBOSS_GROUP)
     end
 
     def f_install_home_subdir
@@ -353,7 +360,7 @@ module InfraEAP
     end
 
     def f_private_fulladdress
-      node_networkif_cfg = node.fetch('network').fetch('interfaces').select { |k, _v| k != 'default_interface' && k != 'default_gateway' && k != 'lo' }
+      node_networkif_cfg = node.fetch('network').fetch('interfaces').select { |k, v| k != 'default_interface' && k != 'default_gateway' && k != 'lo' && v['state'] != 'down' }
 
       pvt_interface_cfg = node_networkif_cfg.select { |_k, v| (v.fetch('addresses').keys.find { |v_ip| v_ip.match(EAP::PVT_JGROUPS_NETWORK) }).nil? ? false : true }
 
@@ -445,7 +452,7 @@ module InfraEAP
     end
 
     def f_jboss_dbag_name
-      EAP::JB_DATABAG
+      f_domain_cfg().fetch('databag_name', EAP::JB_DATABAG)
     end
 
     def f_generic_dbitem_get_value(p_dbitem_name, p_dbitem_idx, p_default_value, p_enforce)
@@ -496,7 +503,7 @@ module InfraEAP
     end
 
     def f_vault_salt
-      salt_value = f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'salt', '1smYS4lt', false)
+      salt_value = f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'salt', f_generic_dbitem_get_value(EAP::JB_DATABAG_TRUST, 'salt', '1smYS4lt', false), false)
 
       if salt_value.length < 8 || salt_value.length > 8
         raise 'salt deve ter exatamente 8 caracteres'
@@ -506,11 +513,11 @@ module InfraEAP
     end
 
     def f_vault_iter_count
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'itercount', 120, false)
+      f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'itercount', f_generic_dbitem_get_value(EAP::JB_DATABAG_TRUST, 'itercount', '120', false), false)
     end
 
     def f_vault_initpass
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'initpass', 'Init14lPa$$WoRd', false)
+      f_generic_dbitem_get_value(EAP::JB_DATABAG_VAULT, 'initpass',  f_generic_dbitem_get_value(EAP::JB_DATABAG_TRUST, 'initpass', 'Init14lPa', false), false)
     end
 
     def f_ldap_credstore_name()
@@ -521,32 +528,50 @@ module InfraEAP
       EAP::VAULT_ALIAS
     end
 
+    def f_is_ldap_auth()
+      f_domain_cfg().fetch('ldap_auth', true)
+    end
+
+    def f_ldap_conf()
+      f_domain_cfg().fetch('ldap_conf', {})
+    end
+
+    def f_ldap_item(ldap_item)
+      ldap_item_value = f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, ldap_item, f_ldap_conf().fetch(ldap_item, ''), false)
+      
+      if ldap_item_value.empty? && f_is_ldap_auth()
+        raise "ldap_conf.#{ ldap_item } não foi informado"
+      end
+
+      ldap_item_value
+    end
+
     def f_ldap_server_url
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, 'url', '', true)
+      f_ldap_item('url')
     end
 
     def f_ldap_credstore_pw
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, 'credential-store-pw', '', true)
+      f_ldap_item('credential-store-pw')
     end
 
     def f_ldap_filter_base_dn
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, 'filter-base-dn', '', true)
+      f_ldap_item('filter-base-dn')
     end
 
     def f_ldap_search_base_dn
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, 'search-base-dn', '', true)
+      f_ldap_item('search-base-dn')
     end
 
     def f_ldap_principal
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, 'principal', '', true)
+      f_ldap_item('principal')
     end
 
     def f_ldap_principal_acc
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, 'pincipal-acc', '', true)
+      f_ldap_item('pincipal-acc')
     end
 
     def f_ldap_principal_pw
-      f_generic_dbitem_get_value(EAP::JB_DATABAG_LDAP, 'principal-pw', '', true)
+      f_ldap_item('principal-pw')
     end
 
     def f_profile_undertow_buffer_size(p_one_profile_cfg)
@@ -580,12 +605,16 @@ module InfraEAP
     end
     
     def f_enable_activemq(p_one_profile_cfg)
-      v_enable_ativemq = if f_src_profile_name(p_one_profile_cfg) =~ /^full/
+      f_has_full_source_profile(p_one_profile_cfg)
+    end
+
+    def f_has_full_source_profile(p_one_profile_cfg)
+      v_full_src_profile = if f_src_profile_name(p_one_profile_cfg) =~ /^full/
                           true
                          else
                           false
                          end
-      v_enable_ativemq
+      v_full_src_profile
     end
 
     def f_activemq_pass(p_one_profile_cfg)

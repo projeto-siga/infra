@@ -25,7 +25,7 @@ module InfraEAP
     property :host_config_file, String, default: ''
     property :domain_config_file, String, default: ''
     property :echo_command, [TrueClass, FalseClass], default: false
-    property :jboss_user, String, default: EAP::JBOSS_USER
+    property :jboss_owner, String, default: EAP::JBOSS_OWNER
     property :jboss_group, String, default: EAP::JBOSS_GROUP
     property :major_version, Integer, default: 7
 
@@ -45,11 +45,13 @@ module InfraEAP
       host_config_file   = new_resource.host_config_file
       domain_config_file = new_resource.domain_config_file
       live_stream        = new_resource.live_stream
-      jboss_user         = new_resource.jboss_user
+      jboss_owner         = new_resource.jboss_owner
       jboss_group        = new_resource.jboss_group
       echo_command       = new_resource.echo_command
       major_version      = new_resource.major_version
 
+      log sensitive
+      log template.nil? || template.empty? ? 'no template' : template
       if major_version < 7
         if echo_command
           log '--echo-command not supported, turning it off.'
@@ -77,11 +79,11 @@ module InfraEAP
         raise "É necessário informar o arquivo de configuração do domain"
       end
 
-      if template.nil?
+      if template.nil? || template.empty?
         commands = run_offline ? "embed-host-controller --host-config=#{host_config_file} --domain-config=#{domain_config_file}, " : ''
         commands = "#{commands}#{cli_commands}#{run_offline ? ',  stop-embedded-host-controller' : ''}"
         execute 'exec commands with jboss-cli' do
-          command "sudo -u jboss #{jboss_eap_dir}/bin/jboss-cli.sh#{(run_offline) ? '' : ' -c'} --commands='#{commands}'#{echo_command_arg}"
+          command "sudo -u #{jboss_owner} #{jboss_eap_dir}/bin/jboss-cli.sh#{(run_offline) ? '' : ' -c'} --commands='#{commands}'#{echo_command_arg}"
           sensitive sensitive
           live_stream live_stream
         end
@@ -90,7 +92,7 @@ module InfraEAP
         v_node = {node: node}
         template cli_path do
           source 'exec_cli_offline_wrapper.erb'
-          owner jboss_user
+          owner jboss_owner
           group jboss_group
           sensitive sensitive
           mode '0640'
@@ -105,13 +107,14 @@ module InfraEAP
         end
 
         execute "apply  #{name}" do
-          command "sudo -u jboss #{jboss_eap_dir}/bin/jboss-cli.sh#{(run_offline) ? '' : ' -c'} --file=#{cli_path}#{echo_command_arg}"
+          command "sudo -u #{jboss_owner} #{jboss_eap_dir}/bin/jboss-cli.sh#{(run_offline) ? '' : ' -c'} --file=#{cli_path}#{echo_command_arg}"
           sensitive sensitive
           ignore_failure ignore_failure
         end
 
-        if sensitive
-          execute "rm -f #{cli_path}"
+        file cli_path do
+          action :delete
+          only_if { sensitive }
         end
       end
     end

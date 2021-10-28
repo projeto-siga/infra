@@ -69,9 +69,10 @@ module InfraEAP
         if ca_trust_update
         notifies :run, 'execute[update-ca-trust]', :immediate
         end
+        if ::File.exist? cert_path
         not_if "echo $(diff #{tmp_cert_path} #{cert_path} 1>/dev/null 2>&1; echo $?) | grep -q 0"
+        end
       end
-
 
       execute 'update-ca-trust' do
         command 'update-ca-trust'
@@ -129,6 +130,8 @@ module InfraEAP
         domain_config_file domain_config_file
         run_offline true
         action :apply
+        jboss_owner f_jboss_owner()
+        jboss_group f_jboss_group()
       end
 
       if update_control

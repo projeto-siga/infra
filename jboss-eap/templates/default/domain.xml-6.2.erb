@@ -37,11 +37,12 @@
         <property name="java.net.preferIPv4Stack" value="true"/>
     </system-properties>
     <management>
+        <% if @is_rbac %>
         <access-control provider="rbac">
             <role-mapping>
             <% @jboss_user_roles.each do |one_role_name|
-                this_role_users = @jboss_ldap_role_mappings.fetch(one_role_name).fetch('users', []).uniq
-                this_role_groups = @jboss_ldap_role_mappings.fetch(one_role_name).fetch('groups', []).uniq
+                this_role_users = @jboss_role_mappings.fetch(one_role_name).fetch('users', []).uniq
+                this_role_groups = @jboss_role_mappings.fetch(one_role_name).fetch('groups', []).uniq
                 if !this_role_users.any? && !this_role_groups.any?
                   if one_role_name.eql?('SuperUser')
               %>
@@ -86,6 +87,9 @@
             %>
             </role-mapping>
         </access-control>
+        <% else %>
+        <access-control provider="simple" />
+        <% end %>
     </management>
     <profiles>
     </profiles>

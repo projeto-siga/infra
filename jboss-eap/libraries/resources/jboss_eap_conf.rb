@@ -60,6 +60,8 @@ module InfraEAP
           major_version major_version
           host_config_file host_config_file
           domain_config_file domain_config_file
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           action :apply
         end
       end
@@ -107,7 +109,7 @@ module InfraEAP
         execute "config slave #{one_slavename}" do
           command "#{jboss_eap_dir}/bin/add-user.sh -u #{one_slavename} -r ManagementRealm -cw -p '#{slave_secret}'#{version < 6.4 ? ' --silent' : ''}"
           action :run
-          not_if "grep -q #{one_slavename} #{configuration_dir}/mgmt-users.properties"
+          not_if "egrep -q '\\b#{one_slavename}\\b' #{configuration_dir}/mgmt-users.properties"
           sensitive false
         end
       end
@@ -129,6 +131,8 @@ module InfraEAP
           run_offline true
           major_version major_version
           offline_start false
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           action :apply
           template_variables(
             host_config_file: host_config_file,
@@ -157,6 +161,8 @@ module InfraEAP
             template 'eap6-compatible.cli.erb'
             host_config_file host_config_file
             domain_config_file domain_config_file
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
             run_offline !f_is_service_active(service_name)
             major_version major_version
             offline_start !f_is_service_active(service_name)
@@ -237,6 +243,8 @@ module InfraEAP
               major_version major_version
               host_config_file host_config_file
               domain_config_file domain_config_file
+              jboss_owner f_jboss_owner()
+              jboss_group f_jboss_group()
               action :apply
             end
           end
@@ -244,11 +252,13 @@ module InfraEAP
           exec_cli_resource "configure profile #{profile_name}" do
             template 'setup.cli.profile.erb'
             action :apply
-            run_offline major_version > 6
+            run_offline major_version > 6  && !f_is_service_active(service_name)
             major_version major_version
             offline_start major_version > 6
             host_config_file host_config_file
             domain_config_file domain_config_file
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
             template_variables(
               host_config_file: host_config_file,
               domain_config_file: domain_config_file,
@@ -287,11 +297,13 @@ module InfraEAP
             v_host_exclude_command = "/host-exclude=EAP#{v_profile_version_str}:write-attribute(name=active-server-groups,value=#{legcay_complete_list})"
             exec_cli_resource v_host_exclude_command do
               live_stream true
-              run_offline major_version > 6 && !f_is_service_active(service_name)
+              run_offline major_version > 6
               echo_command major_version > 6
               major_version major_version
               host_config_file host_config_file
               domain_config_file domain_config_file
+              jboss_owner f_jboss_owner()
+              jboss_group f_jboss_group()
               action :apply
             end
           end
@@ -300,12 +312,22 @@ module InfraEAP
         end
       end
 
+      log f_jboss_role_mappings().to_h.to_s
+
       ruby_block 'call_me_back_action:setup_ldap' do
         block do
           action_setup_ldap
         end
         action :run
-#        not_if domain_version < 7.1
+        only_if { f_is_ldap_auth() }
+      end
+
+      ruby_block 'call_me_back_action:setup_rbac' do
+        block do
+          action_setup_rbac
+        end
+        action :run
+        only_if { f_is_rbac() }
       end
       
       ruby_block 'call_me_back_action:setup_master_cli' do
@@ -329,6 +351,8 @@ module InfraEAP
           cli_commands cfg_vault_cmd
           host_config_file host_config_file
           domain_config_file domain_config_file
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           run_offline !f_is_service_active(service_name)
           action :apply
         end
@@ -379,13 +403,13 @@ module InfraEAP
         end
 
         execute 'Change Cli Trust Store Owner' do
-          command "chown jboss.jboss #{jb_cli_trust_str_path}"
+          command "chown #{f_jboss_owner()}.#{f_jboss_group()} #{jb_cli_trust_str_path}"
           action :run
         end
       end
 
       directory "#{jboss_eap_dir}/.jboss-cli-history" do
-        owner 'jboss'
+        owner f_jboss_owner()
         group 'root'
         mode '0750'
         action :create
@@ -393,8 +417,8 @@ module InfraEAP
 
       template "#{jboss_eap_dir}/bin/jboss-cli.xml" do
         source 'jboss-cli.xml.erb'
-        owner 'jboss'
-        group 'jboss'
+        owner f_jboss_owner()
+        group f_jboss_group()
         mode '0640'
         action :create
         variables(
@@ -430,7 +454,7 @@ module InfraEAP
       ldap_credstore_path = "#{credstore_dir}/#{ldap_credstore_name}.jceks"
       ldap_cert_path = f_ldap_cert_path()
       jboss_user_roles = f_jboss_user_roles()
-      jboss_ldap_role_mappings = f_jboss_ldap_role_mappings()
+      jboss_role_mappings = f_jboss_role_mappings()
       ldap_srv_cert_update = '/tmp/ldap.update'
       ldap_cred_alias = 'ldapjboss-pw'
       ldap_truststore_path = f_ldap_truststore_path()
@@ -446,6 +470,8 @@ module InfraEAP
           host_config_file host_config_file
           domain_config_file domain_config_file
           run_offline true
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           action :apply
         end
 
@@ -457,6 +483,8 @@ module InfraEAP
           cli_commands add_ldap_pwd2str_cmd
           host_config_file host_config_file
           domain_config_file domain_config_file
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           run_offline true
           action :apply
         end
@@ -478,6 +506,8 @@ module InfraEAP
           host_config_file host_config_file
           domain_config_file domain_config_file
           run_offline true
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           action :apply
           template_variables(
             ldap_url: ldap_server_url,
@@ -490,7 +520,7 @@ module InfraEAP
             truststore_secret: truststore_secret,
             ldap_truststore_path: ldap_truststore_path,
             jboss_user_roles: jboss_user_roles,
-            jboss_ldap_role_mappings: jboss_ldap_role_mappings,
+            jboss_role_mappings: jboss_role_mappings,
             was_cert_updated: lazy { ::File.exist? ldap_srv_cert_update }
           )
         end
@@ -501,6 +531,52 @@ module InfraEAP
           file ldap_cert_path
           keystore ldap_truststore_path
           storepass truststore_secret
+        end
+      end
+    end
+
+    action :setup_rbac do
+      host_config_file = new_resource.host_config_file
+      domain_config_file = new_resource.domain_config_file
+      is_master = new_resource.is_master
+      domain_version = new_resource.domain_version
+      version = new_resource.version
+      jboss_user_roles = f_jboss_user_roles()
+      jboss_role_mappings = f_jboss_role_mappings()
+      service_name = new_resource.service_name
+      
+      if version > 7.0 && is_master && f_is_rbac()
+        exec_cli_resource 'Setup Rbac' do
+          template 'setup.rbac.cli.erb'
+          host_config_file host_config_file
+          domain_config_file domain_config_file
+          run_offline !f_is_service_active(service_name)
+          sensitive false
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
+          action :apply
+          template_variables(
+            jboss_user_roles: jboss_user_roles,
+            jboss_role_mappings: jboss_role_mappings,
+            version: version,
+          )
+        end
+      elsif f_is_service_active(service_name) && is_master && f_is_rbac()
+        exec_cli_resource 'Setup Rbac' do
+          live_stream true
+          template 'setup.rbac.cli.erb'
+          host_config_file host_config_file
+          domain_config_file domain_config_file
+          run_offline false
+          sensitive false
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
+          action :apply
+          template_variables(
+            jboss_user_roles: jboss_user_roles,
+            jboss_role_mappings: jboss_role_mappings,
+            version: version,
+          )
         end
       end
     end
@@ -526,7 +602,18 @@ module InfraEAP
       my_version = new_resource.version
       major_version = new_resource.major_version
 
-      addrs_2_trust = [master_ipaddress] + cluster_address
+      if f_has_jmx_zabbix_conf()
+        zabbix_user = f_zabbix_user()
+        zabbix_password = f_zabbix_password()
+        execute "config zabbix #{zabbix_user}" do
+          command "#{jboss_eap_dir}/bin/add-user.sh -u #{zabbix_user} -a -r ApplicationRealm -cw -p '#{zabbix_password}'#{my_version < 6.4 ? ' --silent' : ''}"
+          action :run
+          not_if "egrep -q '\\b#{zabbix_user}\\b' #{configuration_dir}/application-users.properties"
+          sensitive false
+        end
+      end
+
+      addrs_2_trust =  f_has_jmx_zabbix_conf() ? [f_zabbix_server_address()] + [master_ipaddress] + cluster_address : [master_ipaddress] + cluster_address
       pvt_if_fulladdr = f_private_fulladdress()
       has_pvt_jg_nw = pvt_if_fulladdr.nil? ? false : true
       pvt_if_ipaddr = has_pvt_jg_nw ? f_private_ipaddress(pvt_if_fulladdr) : nil
@@ -621,6 +708,8 @@ module InfraEAP
           domain_config_file domain_config_file
           run_offline true
           offline_start false
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           action :apply
           template_variables(
             host_config_file: host_config_file,
@@ -635,6 +724,7 @@ module InfraEAP
             truststore_base_dir: truststore_dir,
             has_pvt_jg_nw: has_pvt_jg_nw,
             pvt_if_ipaddr: pvt_if_ipaddr,
+            enable_unsecure_interface: f_has_full_server(),
             update_master_cert: lazy { ::File.exist? master_cert_path_update },
             domain_name: domain_name
           )
@@ -646,6 +736,14 @@ module InfraEAP
           end
           action :run
         end
+
+#        ruby_block 'call_me_back_action:setup_ldap' do
+#          block do
+###            action_setup_ldap
+#          end
+#          action :run
+#          only_if { f_is_ldap_auth() }
+#        end
       else
         jboss_eap_xml "Config XML on EAP #{f_my_version()}" do
           action :config_slave
@@ -698,7 +796,9 @@ module InfraEAP
           jboss_install_home_dir: jboss_install_home_dir,
           log_path: log_dir,
           init_script: f_init_script(),
-          is_rpm: f_is_rpm_install()
+          is_rpm: f_is_rpm_install(),
+          jboss_owner: f_jboss_owner(),
+          jboss_group: f_jboss_group()
         )
       end
 
@@ -733,8 +833,8 @@ module InfraEAP
         file "#{configuration_dir}/#{domain_config_file}" do
           content lazy { IO.read("#{configuration_dir}/domain.xml") }
           action :create
-          owner EAP::JBOSS_USER
-          group EAP::JBOSS_GROUP
+          owner f_jboss_owner()
+          group f_jboss_group()
           mode '0664'
           not_if "test -f #{configuration_dir}/#{domain_config_file}"
         end
@@ -742,8 +842,8 @@ module InfraEAP
         file "#{configuration_dir}/#{host_config_file}" do
           content lazy { IO.read("#{configuration_dir}/host-#{is_master ? 'master' : 'slave'}.xml") }
           action :create
-          owner EAP::JBOSS_USER
-          group EAP::JBOSS_GROUP
+          owner f_jboss_owner()
+          group f_jboss_group()
           mode '0664'
           not_if "test -f #{configuration_dir}/#{host_config_file}"
         end
@@ -812,6 +912,8 @@ module InfraEAP
           cert_path cert_path
           username ldap_jboss_acc
           userpw ldap_jboss_pw      
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
         end
       end
 
@@ -827,6 +929,8 @@ module InfraEAP
             cert_path cert_path
             username ldap_jboss_acc
             userpw ldap_jboss_pw
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
           end
         end
 
@@ -840,12 +944,16 @@ module InfraEAP
           cert_path cert_path
           username ldap_jboss_acc
           userpw ldap_jboss_pw
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
         end
 
         exec_cli_resource "#{profile_name}-mod_cluster_load_metrics" do
           template 'setup_modcluster.cli.erb'
           live_stream true
           echo_command major_version > 6
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           template_variables(
             profile_name: profile_name,
             jboss_version: version  
@@ -856,6 +964,8 @@ module InfraEAP
           template 'setup_webservices.cli.erb'
           live_stream true
           echo_command major_version > 6
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           template_variables(
             profile_name: profile_name,
             jboss_version: version,
@@ -863,7 +973,7 @@ module InfraEAP
           )
         end
 
-        v_srv_grps_desired_state = f_remove_keys(v_server_groups, ['enable-gclog','heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size', 'system-properties','slave-hosts', 'enable-debug', 'jvm-options'])
+        v_srv_grps_desired_state = f_remove_keys(v_server_groups, ['public-http','enable-gclog','heap-size', 'max-heap-size', 'permgen-size', 'max-permgen-size', 'system-properties','slave-hosts', 'enable-debug', 'jvm-options'])
 
         cli_resource 'server-groups' do
           profile_name profile_name
@@ -873,6 +983,8 @@ module InfraEAP
           cert_path cert_path
           username ldap_jboss_acc
           userpw ldap_jboss_pw
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
         end
 
         v_server_groups.each_pair do |srv_group_name, one_srv_grp_cfg|
@@ -887,6 +999,8 @@ module InfraEAP
             cert_path cert_path
             username ldap_jboss_acc
             userpw ldap_jboss_pw
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
           end
 
           if one_srv_grp_cfg.has_key? 'system-properties'
@@ -899,6 +1013,8 @@ module InfraEAP
               cert_path cert_path
               username ldap_jboss_acc
               userpw ldap_jboss_pw      
+              jboss_owner f_jboss_owner()
+              jboss_group f_jboss_group()
             end
           end
         end
@@ -915,6 +1031,8 @@ module InfraEAP
           cert_path cert_path
           username ldap_jboss_acc
           userpw ldap_jboss_pw    
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
         end
         
         v_data_sources = f_profile_datasources(one_profile_cfg)
@@ -929,6 +1047,8 @@ module InfraEAP
             sensitive true
             echo_command major_version > 6
             major_version major_version
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
             template 'securitydomains.cli.erb'
             template_variables(
               profile_name: profile_name,
@@ -950,6 +1070,8 @@ module InfraEAP
           cert_path cert_path
           username ldap_jboss_acc
           userpw ldap_jboss_pw
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
         end
 
         #v_xa_ds_desired_state = f_remove_keys(v_xa_data_sources, ['xa-datasource-properties'])
@@ -963,6 +1085,8 @@ module InfraEAP
           cert_path cert_path
           username ldap_jboss_acc
           userpw ldap_jboss_pw
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
         end
 
         v_xa_data_sources.each_pair do |xa_ds_name, one_xa_ds_config|
@@ -975,6 +1099,8 @@ module InfraEAP
             cert_path cert_path
             username ldap_jboss_acc
             userpw ldap_jboss_pw
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
           end
         end
 
@@ -990,6 +1116,8 @@ module InfraEAP
             cert_path cert_path
             username ldap_jboss_acc
             userpw ldap_jboss_pw
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
           end
 
           handler_type_cfg.each_pair do |handler_name, _one_handler_cfg|
@@ -998,7 +1126,24 @@ module InfraEAP
               live_stream true
               echo_command major_version > 6
               major_version major_version
+              jboss_owner f_jboss_owner()
+              jboss_group f_jboss_group()
             end
+          end
+        end
+
+        if f_has_jmx_zabbix_conf()
+          cli_resource "#{profile_name}-jmx" do
+            profile_name profile_name
+            desired_state f_jmx_desired()
+            resource_address "/profile=#{profile_name}/subsystem=jmx"
+            resource_type 'remoting-connector'
+            eap_version version
+            cert_path cert_path
+            username ldap_jboss_acc
+            userpw ldap_jboss_pw
+            jboss_owner f_jboss_owner()
+            jboss_group f_jboss_group()
           end
         end
       end
@@ -1056,6 +1201,37 @@ module InfraEAP
               action :run
             end
           end
+          if f_has_full_source_profile(f_profiles()[profile_name])
+            http_port = f_srv_group_http_port(one_srv_grp_cfg)
+            if f_public_http(one_srv_grp_cfg)
+              v_firewall_cmd = "firewall-cmd --permanent --zone=public --add-port=#{http_port}"
+              execute "open http port #{http_port} to public" do
+                command v_firewall_cmd
+                action :run
+                not_if "firewall-cmd --list-ports --permanent | egrep -q '\\b#{http_port}\\b'"
+                notifies :reload, 'service[firewalld]', :immediately
+              end
+            else
+              f_http_trust(one_srv_grp_cfg).each do |partner_source|
+                v_firewall_cmd = 'firewall-cmd --permanent --zone=public --add-rich-rule=\'rule family="ipv4" source address="'
+                v_firewall_cmd = "#{v_firewall_cmd}#{partner_source}\" port protocol=\"tcp\" port=\"#{http_port}\" accept'"
+
+                execute "open http port #{http_port} to #{partner_source}" do
+                  command v_firewall_cmd
+                  action :run
+                  not_if "firewall-cmd --list-rich-rules --permanent | grep #{partner_source} | egrep -q '\\b#{http_port}\\b'"
+                  notifies :reload, 'service[firewalld]', :immediately
+                end
+              end
+              v_firewall_cmd = "firewall-cmd --permanent --zone=public --remove-port=#{http_port}"
+              execute "open http port #{http_port} to public" do
+                command v_firewall_cmd
+                action :run
+                only_if "firewall-cmd --list-ports --permanent | egrep -q '\\b#{http_port}\\b'"
+                notifies :reload, 'service[firewalld]', :immediately
+              end
+            end
+          end
         end
 
         exec_cli_resource "#{profile_name}-server_config" do
@@ -1071,6 +1247,8 @@ module InfraEAP
           echo_command major_version > 6
           major_version major_version
           ignore_failure false
+          jboss_owner f_jboss_owner()
+          jboss_group f_jboss_group()
           action :apply
         end
       end

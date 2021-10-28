@@ -1,0 +1,40 @@
+# BEGIN SETUP LDAP AUTHENTICATION
+# REF: https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html-single/security_architecture/index#using_ldap_management_realm
+# REF: https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.2/html-single/how_to_configure_identity_management/index#securing_the_management_interfaces_with_ldap
+# REF: https://access.redhat.com/solutions/2049633 (RBAC AUTH TROUBLE RESEARCH)
+# REF: https://access.redhat.com/solutions/544624 (LDAP-ERROR-CODES)
+# REF: https://access.redhat.com/solutions/3220741 (COMPLETE HOWTO)
+#
+if (result != rbac) of /core-service=management/access=authorization:read-attribute(name=provider)
+/core-service=management/access=authorization:write-attribute(name=provider,value=rbac)
+end-if
+<% if @version > 7 %>
+if (result != true) of /core-service=management/access=authorization:read-attribute(name=use-identity-roles)
+/core-service=management/access=authorization:write-attribute(name=use-identity-roles,value=true)
+end-if
+<% end %>
+<% @jboss_user_roles.each do |one_role_name| %>
+if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:read-resource
+  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>:add
+end-if
+<% this_role_users = @jboss_role_mappings.fetch(one_role_name).fetch('users', []).uniq
+   this_role_groups = @jboss_role_mappings.fetch(one_role_name).fetch('groups', []).uniq
+   this_role_groups.each do |one_groupname|
+%>
+<% if !one_groupname.nil? && !one_groupname.empty?  %>
+if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:read-resource
+  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=GROUP-<%= one_groupname -%>:add(name=<%= one_groupname -%>,type=GROUP)
+end-if
+<%  end %>
+<%  end %>
+<% this_role_users.each do |one_username| %>
+<% if !one_username.nil? && !one_username.empty?  %>
+if (outcome == success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:read-resource
+  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=user-<%= one_username -%>:remove
+end-if
+if (outcome != success) of /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=USER-<%= one_username -%>:read-resource
+  /core-service=management/access=authorization/role-mapping=<%= one_role_name -%>/include=USER-<%= one_username -%>:add(name=<%= one_username -%>,type=USER)
+end-if
+<%  end %>
+<%  end %>
+<%  end %>
